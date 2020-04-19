@@ -1,6 +1,6 @@
 import { Component } from '@neep/core';
 import install, { Neep } from './install';
-import InsertView from './InsertView';
+import InsertView, { Props } from './InsertView';
 
 export type InsertableComponent = string | Component<any, any>;
 export interface Info {
@@ -16,9 +16,6 @@ class Insertable {
 		if (parent instanceof Insertable) {
 			this.parent = parent;
 		}
-	}
-	private init() {
-		return this._groups;
 	}
 	add(
 		name: string,
@@ -80,6 +77,20 @@ class Insertable {
 			allList.sort(({order: a}, {order: b}) => (a || 0) - (b || 0));
 		}
 		return allList;
+	}
+	get view() {
+		const view: Component = (props: {
+			name?: string;
+			[key: string]: any;
+		}, ...p) =>
+		InsertView({...props, insertable: this}, ...p);
+		Neep.mName('Insertable', view);
+		Reflect.defineProperty(this, 'view', {
+			value: view,
+			enumerable: true,
+			configurable: true,
+		});
+		return view;
 	}
 	static get install() { return install; };
 	static get View() { return InsertView; };
