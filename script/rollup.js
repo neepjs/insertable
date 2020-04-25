@@ -26,7 +26,7 @@ const banner = `\
  * @license ${ license }
  */`;
 
-const createOutput = (format, min) => ({
+const createOutput = (format, prod) => ({
 	file: [
 		`dist/${ info.name.replace('@', '').replace(/\/|-/g, '.') }`,
 		...(format === 'cjs' || format === 'mjs' ? [] : [
