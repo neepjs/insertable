@@ -1,6 +1,7 @@
-import { Component } from '@neep/core';
-import install, { Neep } from './install';
-import InsertView, { Props } from './InsertView';
+import { Component, mName } from '@neep/core';
+import install from './install';
+import { encase } from './install/neep';
+import InsertView from './InsertView';
 
 export type InsertableComponent = string | Component<any, any>;
 export interface Info {
@@ -11,7 +12,7 @@ export type Item = [InsertableComponent, Info];
 
 class Insertable {
 	readonly parent?: Insertable;
-	private _groups: {[key: string]: Readonly<Info>[]} = Neep.encase(Object.create(null));
+	private _groups: {[key: string]: Readonly<Info>[]} = encase(Object.create(null));
 	constructor(parent?: Insertable) {
 		if (parent instanceof Insertable) {
 			this.parent = parent;
@@ -84,7 +85,7 @@ class Insertable {
 			[key: string]: any;
 		}, ...p) =>
 		InsertView({...props, insertable: this}, ...p);
-		Neep.mName('Insertable', view);
+		mName('Insertable', view);
 		Reflect.defineProperty(this, 'view', {
 			value: view,
 			enumerable: true,

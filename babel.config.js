@@ -14,5 +14,9 @@ module.exports = {
 			jsxPragma: 'createElement',
 			allowNamespaces: true,
 		}],
+		['@babel/plugin-transform-react-jsx', {
+			pragma: 'createElement',
+			throwIfNamespace: false,
+		}],
 	],
 };
