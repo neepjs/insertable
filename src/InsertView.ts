@@ -1,5 +1,6 @@
 import Insertable from './Insertable';
-import { mSimple, mName, Context, Auxiliary } from '@neep/core';
+import { mSimple, mName, Context } from '@neep/core';
+import { createElement, Deliver } from './install/neep';
 
 export interface Props {
 	name?: string;
@@ -9,7 +10,6 @@ export interface Props {
 export default function InsertView(
 	props: Props,
 	{ insertable: contextInsertable, childNodes }: Context,
-	{ createElement, Deliver }: Auxiliary,
 ) {
 	const { name, insertable } = props;
 	if (!name && insertable instanceof Insertable) {
