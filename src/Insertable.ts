@@ -1,4 +1,4 @@
-import { Component, mName } from '@neep/core';
+import { Component, mName, mSimple } from '@neep/core';
 import install from './install';
 import { encase } from './install/neep';
 import InsertView from './InsertView';
@@ -86,6 +86,7 @@ class Insertable {
 		}, ...p) =>
 		InsertView({...props, insertable: this}, ...p);
 		mName('Insertable', view);
+		mSimple(view);
 		Reflect.defineProperty(this, 'view', {
 			value: view,
 			enumerable: true,
