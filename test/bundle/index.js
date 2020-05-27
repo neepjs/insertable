@@ -4,7 +4,7 @@
 }((function () { 'use strict';
 
   /*!
-   * monitorable v0.1.0-alpha.7
+   * monitorable v0.1.0-beta.0
    * (c) 2020 Fierflame
    * @license MIT
    */
@@ -631,10 +631,10 @@
       cancelList = list.map(([obj, p]) => watchProp(recover(obj), p, trigger));
     }
 
-    function exec() {
+    function exec(...p) {
       cancel();
       const thisRead = new Map();
-      const result = observe(thisRead, fn, options);
+      const result = observe(thisRead, () => fn(...p), options);
       run(thisRead);
       return result;
     }
@@ -656,7 +656,7 @@
    */
 
 
-  function createExecutable(cb, fn, options) {
+  function monitor(cb, fn, options) {
     if (typeof fn === 'function') {
       return create(cb, fn, options);
     }
@@ -880,35 +880,6 @@
       trigger
     };
   }
-  /**
-   * 创建引用值
-   * @param value 初始值
-   * @param options 选项
-   */
-
-
-  function value(def, options) {
-    const proxy = options === true || options && options.proxy;
-    let source;
-    let proxyValue;
-    const {
-      value
-    } = createValue(() => proxyValue, (v, mark) => {
-      if (proxy) {
-        v = recover(v);
-      }
-
-      if (v === source) {
-        return;
-      }
-
-      source = v;
-      proxyValue = proxy ? encase(source) : source;
-      mark();
-    });
-    value(def);
-    return value;
-  }
 
   function computed(getter, setter, options) {
     var _options;
@@ -926,7 +897,7 @@
     let stopped = false;
     let computed = false;
     let trigger;
-    const executable = createExecutable(changed => {
+    const executable = monitor(changed => {
       computed = !changed;
 
       if (changed && trigger) {
@@ -977,60 +948,34 @@
     return value;
   }
 
-  function createValue$1(props, key, def = value(undefined), set) {
-    function setValue(value, setted) {
-      if (!set) {
-        return;
-      }
-
-      set(value, setted);
-    }
-
+  function createValue$2(props, key) {
     return computed(() => {
-      if (!(key in props)) {
-        return def();
-      }
-
       const p = props[key];
       return isValue(p) ? p() : p;
     }, v => {
-      if (!(key in props)) {
-        def(v);
-        setValue(v, false);
-        return;
-      }
-
       const p = props[key];
 
       if (isValue(p)) {
         p(v);
-        setValue(v, true);
-        return;
+      } else {
+        props[key] = v;
       }
-
-      setValue(v, false);
     });
   }
 
-  function valueify(props, key, def, set) {
+  function asValue(props, key) {
     if (arguments.length >= 2) {
-      return createValue$1(props, key, def, set);
+      return createValue$2(props, key);
     }
 
-    return (k, d, s) => createValue$1(props, k, d, s);
+    return k => createValue$2(props, k);
   }
 
   /*!
-   * Neep v0.1.0-alpha.9
+   * Neep v0.1.0-alpha.13
    * (c) 2019-2020 Fierflame
    * @license MIT
    */
-  const version = 'undefined';
-  const isProduction = "development" === 'production';
-  var Constant = /*#__PURE__*/Object.freeze({
-    version: version,
-    isProduction: isProduction
-  });
   const devtools = {
     renderHook() {}
 
@@ -1092,7 +1037,10 @@
 
   function nextFrame(fn) {
     assert(nextFrameApi, 'The basic renderer is not installed', 'install');
-    nextFrameApi(fn);
+
+    if (nextFrameApi) {
+      nextFrameApi(fn);
+    }
   }
 
   const renders = Object.create(null);
@@ -1373,70 +1321,12 @@
 
   }
 
-  const components = Object.create(null);
-
-  function register(name, component) {
-    components[name] = component;
-  }
-
-  const isElementSymbol = Symbol.for('isNeepElement');
-  const typeSymbol = Symbol.for('type');
-  const nameSymbol = Symbol.for('name');
-  const renderSymbol = Symbol.for('render');
-  const componentsSymbol = Symbol.for('components');
-  const configSymbol = Symbol.for('config');
-
-  function Mark(symbol, value) {
-    return component => {
-      component[symbol] = value;
-      return component;
-    };
-  }
-
-  function mName(name, component) {
-    if (!component) {
-      return Mark(nameSymbol, name);
-    }
-
-    component[nameSymbol] = name;
-    return component;
-  }
-
-  function mSimple(component) {
-    if (!component) {
-      return Mark(typeSymbol, 'simple');
-    }
-
-    component[typeSymbol] = 'simple';
-    return component;
-  }
-
-  function create$1(c, r) {
-    if (typeof r === 'function') {
-      c[renderSymbol] = r;
-    }
-
-    return c;
-  }
-
   const ScopeSlot = 'Neep:ScopeSlot';
   const SlotRender = 'Neep:SlotRender';
   const Slot = 'Neep:Slot';
   const Value = 'Neep:Value';
-  const Container = 'Neep:Container';
   const Deliver = 'Neep:Deliver';
   const Template = 'template';
-  const Fragment = Template;
-  var Tags = /*#__PURE__*/Object.freeze({
-    ScopeSlot: ScopeSlot,
-    SlotRender: SlotRender,
-    Slot: Slot,
-    Value: Value,
-    Container: Container,
-    Deliver: Deliver,
-    Template: Template,
-    Fragment: Fragment
-  });
   let current;
 
   function setCurrent(fn, entity) {
@@ -1445,10 +1335,15 @@
 
     try {
       current.$_valueIndex = 0;
+      current.$_serviceIndex = 0;
       const ret = fn();
 
       if (current.$_valueIndex !== current.$_values.length) {
         throw new NeepError('Inconsistent number of useValue executions', 'life');
+      }
+
+      if (current.$_serviceIndex && current.$_serviceIndex !== current.$_services.length) {
+        throw new NeepError('Inconsistent number of useService executions', 'life');
       }
 
       return ret;
@@ -1457,27 +1352,11 @@
     }
   }
 
-  function checkCurrent(name, initOnly = false) {
-    if (!current) {
-      throw new NeepError(`Function \`${name}\` can only be called within a cycle.`, 'life');
-    }
-
-    if (!initOnly) {
-      return current;
-    }
-
-    if (!current.created) {
-      return current;
-    }
-
-    throw new NeepError(`Function \`${name}\` can only be called at initialization time.`, 'life');
-  }
-
   const constructors = [];
 
-  function initContext(context, exposed) {
+  function initContext(context, entity) {
     for (const constructor of constructors) {
-      constructor(context, exposed);
+      constructor(context, entity);
     }
 
     return context;
@@ -1485,6 +1364,62 @@
 
   function addContextConstructor(constructor) {
     constructors.push(safeify(constructor));
+  }
+
+  const constructors$1 = [];
+
+  function initEntity(entity) {
+    for (const constructor of constructors$1) {
+      constructor(entity);
+    }
+
+    return entity;
+  }
+
+  let delayedRefresh = 0;
+  const objectSet = new Set();
+
+  function wait$1(obj) {
+    if (delayedRefresh <= 0) {
+      return false;
+    }
+
+    objectSet.add(obj);
+    return true;
+  }
+
+  function run$2() {
+    if (delayedRefresh > 0) {
+      return;
+    }
+
+    const list = [...objectSet];
+    objectSet.clear();
+    list.forEach(o => o.refresh());
+  }
+
+  async function asyncRefresh(f) {
+    try {
+      delayedRefresh++;
+      return await f();
+    } finally {
+      delayedRefresh--;
+      run$2();
+    }
+  }
+
+  function refresh(f, async) {
+    if (async) {
+      return asyncRefresh(f);
+    }
+
+    try {
+      delayedRefresh++;
+      return f();
+    } finally {
+      delayedRefresh--;
+      run$2();
+    }
   }
 
   const hooks = Object.create(null);
@@ -1522,102 +1457,12 @@
     }
   }
 
-  function watch(value, cb) {
-    const entity = checkCurrent('watch');
-
-    if (typeof value !== 'function') {
-      return () => {};
-    }
-
-    const stop = isValue(value) ? value.watch(cb) : computed(value).watch((v, s) => cb(v(), s));
-    setHook('beforeDestroy', () => stop(), entity);
-    return stop;
-  }
-
-  function useValue(fn, name = 'useValue') {
-    const entity = checkCurrent(name);
-    const index = entity.$_valueIndex++;
-    const values = entity.$_values;
-
-    if (!entity.created) {
-      values[index] = undefined;
-      const v = typeof fn === 'function' ? fn() : value(undefined);
-      return values[index] = v;
-    }
-
-    if (index >= values.length) {
-      throw new NeepError('Inconsistent number of useValue executions', 'life');
-    }
-
-    return values[index];
-  }
-
-  function hook(name, hook, initOnly) {
-    const entity = checkCurrent('setHook');
-
-    if (initOnly && entity.created) {
-      return undefined;
-    }
-
-    return setHook(name, () => hook(), entity);
-  }
-
-  function setValue(obj, name, value, opt) {
-    if (typeof name === 'string' && ['$', '_'].includes(name[0])) {
-      return;
-    }
-
-    if (isValue(value) && opt) {
-      Reflect.defineProperty(obj, name, {
-        get() {
-          return value();
-        },
-
-        set(v) {
-          value(v);
-        },
-
-        configurable: true,
-        enumerable: true
-      });
-      return;
-    }
-
-    if (typeof value === 'function' && opt) {
-      Reflect.defineProperty(obj, name, {
-        get: value,
-        set: typeof opt === 'function' ? opt : undefined,
-        configurable: true,
-        enumerable: true
-      });
-      return;
-    }
-
-    Reflect.defineProperty(obj, name, {
-      get() {
-        return value;
-      },
-
-      configurable: true,
-      enumerable: true
-    });
-  }
-
-  function expose(name, value, opt) {
-    setValue(checkCurrent('expose', true).exposed, name, value, opt);
-  }
-
-  function deliver(name, value, opt) {
-    setValue(checkCurrent('deliver', true).delivered, name, value, opt);
-  }
-
-  var Life = /*#__PURE__*/Object.freeze({
-    watch: watch,
-    useValue: useValue,
-    hook: hook,
-    expose: expose,
-    deliver: deliver
-  });
+  const isElementSymbol = Symbol.for('isNeepElement');
+  const typeSymbol = Symbol.for('type');
+  const nameSymbol = Symbol.for('name');
+  const renderSymbol = Symbol.for('render');
+  const componentsSymbol = Symbol.for('components');
+  const configSymbol = Symbol.for('config');
 
   function isElement(v) {
     if (!v) {
@@ -1637,10 +1482,13 @@
     const node = {
       [isElementSymbol]: true,
       tag,
+      key: undefined,
       children: []
     };
 
-    if ('key' in attrs) {
+    if ('n:key' in attrs) {
+      node.key = attrs.key;
+    } else if ('n-key' in attrs) {
       node.key = attrs.key;
     }
 
@@ -1695,123 +1543,13 @@
     return node;
   }
 
-  function elements(node, opt = {}) {
-    if (Array.isArray(node)) {
-      const list = [];
-
-      for (let n of node) {
-        list.push(elements(n, opt));
-      }
-
-      return [].concat(...list);
-    }
-
-    if (!isElement(node)) {
-      return [node];
-    }
-
-    let {
-      tag
-    } = node;
-
-    if (!tag) {
-      return [node];
-    }
-
-    if ([Template, ScopeSlot].includes(tag)) {
-      return elements(node.children, opt);
-    }
-
-    if (typeof tag !== 'function') {
-      return [node];
-    }
-
-    if (tag[typeSymbol] !== 'simple') {
-      return [node];
-    }
-
-    const {
-      simple
-    } = opt;
-
-    if (!simple) {
-      return [node];
-    }
-
-    if (Array.isArray(simple)) {
-      if (simple.includes(tag)) {
-        return [node];
-      }
-    } else if (typeof simple === 'function') {
-      if (!simple(tag)) {
-        return [node];
-      }
-    }
-
-    return elements(node.children, opt);
-  }
-
-  var Element$1 = /*#__PURE__*/Object.freeze({
-    isElement: isElement,
-    createElement: createElement,
-    elements: elements
-  });
   let label;
-
-  function setLabel(l) {
-    label = l;
-  }
 
   function getLabel() {
     const l = label;
     label = undefined;
     return l;
   }
-
-  function label$1(text, color = '') {
-    {
-      if (!current) {
-        setLabel([text, color]);
-        return;
-      }
-
-      Reflect.defineProperty(current.exposed, '$label', {
-        value: [text, color],
-        configurable: true
-      });
-    }
-  }
-
-  var Dev = /*#__PURE__*/Object.freeze({
-    label: label$1
-  });
-  const auxiliary = { ...Tags,
-    ...Life,
-    ...Element$1,
-    ...Dev,
-    ...Constant,
-
-    get value() {
-      return value;
-    },
-
-    get computed() {
-      return computed;
-    },
-
-    get isValue() {
-      return isValue;
-    },
-
-    get encase() {
-      return encase;
-    },
-
-    get recover() {
-      return recover;
-    }
-
-  };
 
   let ids = 0;
   const Nodes = {};
@@ -1877,6 +1615,206 @@
     }
   }
 
+  function* getNodes(tree) {
+    if (Array.isArray(tree)) {
+      for (const it of tree) {
+        yield* getNodes(it);
+      }
+
+      return;
+    }
+
+    const {
+      children,
+      node,
+      component
+    } = tree;
+
+    if (node) {
+      yield node;
+      return;
+    }
+
+    if (component) {
+      yield* getNodes(component.tree);
+      return;
+    }
+
+    yield* getNodes(children);
+  }
+
+  function unmount(iRender, tree) {
+    if (Array.isArray(tree)) {
+      tree.forEach(e => unmount(iRender, e));
+      return;
+    }
+
+    const {
+      component,
+      children,
+      node,
+      ref
+    } = tree;
+    recoveryMountedNode(tree);
+
+    if (component) {
+      setRef(ref, component.exposed, true);
+      component.unmount();
+      return;
+    }
+
+    if (node) {
+      setRef(ref, node, true);
+      iRender.removeNode(node);
+    }
+
+    unmount(iRender, children);
+  }
+
+  function createValue$1(iRender, source, value) {
+    let {
+      ref
+    } = source;
+
+    if (iRender.isNode(value)) {
+      setRef(ref, value);
+      return createMountedNode({ ...source,
+        value,
+        node: value,
+        children: [],
+        component: undefined
+      });
+    }
+
+    const type = typeof value;
+    let node;
+
+    if (type === 'bigint' || type === 'boolean' || type === 'number' || type === 'string' || type === 'symbol' || value instanceof RegExp) {
+      node = iRender.createText(String(value));
+    } else if (value instanceof Date) {
+      node = iRender.createText(value.toISOString());
+    } else if (type === 'object' && value) {
+      node = iRender.createText(String(value));
+    }
+
+    if (!node) {
+      node = iRender.createPlaceholder();
+    }
+
+    setRef(ref, node);
+    return createMountedNode({ ...source,
+      value,
+      node,
+      component: undefined,
+      children: []
+    });
+  }
+
+  function createAll(iRender, source) {
+    if (!source.length) {
+      return [createMountedNode({
+        tag: null,
+        node: iRender.createPlaceholder(),
+        component: undefined,
+        children: []
+      })];
+    }
+
+    return source.map(item => Array.isArray(item) ? createList(iRender, item) : createItem(iRender, item));
+  }
+
+  function createList(iRender, source) {
+    if (source.length) {
+      return source.map(it => createItem(iRender, it));
+    }
+
+    return [createMountedNode({
+      tag: null,
+      node: iRender.createPlaceholder(),
+      component: undefined,
+      children: []
+    })];
+  }
+
+  function createItem(iRender, source) {
+    var _source$children;
+
+    const {
+      tag,
+      ref,
+      component
+    } = source;
+
+    if (!tag) {
+      const node = iRender.createPlaceholder();
+      setRef(ref, node);
+      return createMountedNode({
+        tag: null,
+        node,
+        component: undefined,
+        children: []
+      });
+    }
+
+    const ltag = typeof tag !== 'string' ? '' : tag.toLowerCase();
+
+    if (typeof tag !== 'string' || ltag === 'neep:container') {
+      if (!component) {
+        return createMountedNode({ ...source,
+          node: undefined,
+          component: undefined,
+          children: createAll(iRender, source.children)
+        });
+      }
+
+      component.mount();
+      setRef(ref, component.exposed);
+      return createMountedNode({ ...source,
+        node: undefined,
+        component,
+        children: []
+      });
+    }
+
+    if (ltag === 'neep:value') {
+      let {
+        value
+      } = source;
+
+      if (isValue(value)) {
+        value = value();
+      }
+
+      return createValue$1(iRender, source, value);
+    }
+
+    if (ltag.substr(0, 5) === 'neep:' || ltag === 'template') {
+      return createMountedNode({ ...source,
+        node: undefined,
+        component: undefined,
+        children: createAll(iRender, source.children)
+      });
+    }
+
+    const node = iRender.createElement(tag, source.props || {});
+    setRef(ref, node);
+    let children = [];
+
+    if ((_source$children = source.children) === null || _source$children === void 0 ? void 0 : _source$children.length) {
+      children = createAll(iRender, source.children);
+
+      for (const it of getNodes(children)) {
+        iRender.insertNode(node, it);
+      }
+    }
+
+    return createMountedNode({ ...source,
+      node,
+      component: undefined,
+      children
+    });
+  }
+
   function getLastNode(tree) {
     if (Array.isArray(tree)) {
       return getLastNode(tree[tree.length - 1]);
@@ -1921,63 +1859,6 @@
     return getFirstNode(children[0]);
   }
 
-  function* getNodes(tree) {
-    if (Array.isArray(tree)) {
-      for (const it of tree) {
-        yield* getNodes(it);
-      }
-
-      return;
-    }
-
-    const {
-      children,
-      node,
-      component
-    } = tree;
-
-    if (node) {
-      yield node;
-      return;
-    }
-
-    if (component) {
-      yield* getNodes(component.tree);
-      return;
-    }
-
-    yield* getNodes(children);
-  }
-
-  function unmount(iRender, tree) {
-    if (Array.isArray(tree)) {
-      tree.forEach(e => unmount(iRender, e));
-      return;
-    }
-
-    const {
-      component,
-      children,
-      node,
-      ref
-    } = tree;
-    recoveryMountedNode(tree);
-
-    if (node) {
-      setRef(ref, node, true);
-      iRender.remove(node);
-      return;
-    }
-
-    if (component) {
-      setRef(ref, component.exposed, true);
-      component.unmount();
-      return;
-    }
-
-    unmount(iRender, children);
-  }
-
   function replace(iRender, newTree, oldTree) {
     const next = getFirstNode(oldTree);
 
@@ -1985,14 +1866,14 @@
       return newTree;
     }
 
-    const parent = iRender.parent(next);
+    const parent = iRender.getParent(next);
 
     if (!parent) {
       return newTree;
     }
 
     for (const it of getNodes(newTree)) {
-      iRender.insert(parent, it, next);
+      iRender.insertNode(parent, it, next);
     }
 
     unmount(iRender, oldTree);
@@ -2038,13 +1919,13 @@
     unmount(iRender, list);
     tree = tree.filter(t => mountedMap.has(t));
     const last = getLastNode(tree[tree.length - 1]);
-    const parent = iRender.parent(last);
+    const parent = iRender.getParent(last);
 
     if (!parent) {
       return newList;
     }
 
-    let next = iRender.next(last);
+    let next = iRender.nextNode(last);
 
     for (let i = newList.length - 1; i >= 0; i--) {
       const item = newList[i];
@@ -2056,7 +1937,7 @@
         }
       } else {
         for (const it of getNodes(item)) {
-          iRender.insert(parent, it, next);
+          iRender.insertNode(parent, it, next);
         }
       }
 
@@ -2091,8 +1972,8 @@
 
     if (source.length > length) {
       const last = getLastNode(list[list.length - 1]);
-      const parent = iRender.parent(last);
-      const next = iRender.next(last);
+      const parent = iRender.getParent(last);
+      const next = iRender.nextNode(last);
 
       for (; index < length; index++) {
         const src = source[index];
@@ -2104,7 +1985,7 @@
         }
 
         for (const it of getNodes(item)) {
-          iRender.insert(parent, it, next);
+          iRender.insertNode(parent, it, next);
         }
       }
     }
@@ -2146,7 +2027,7 @@
         return createMountedNode({ ...source,
           node: undefined,
           component: undefined,
-          children: draw(iRender, source.children, tree.children)
+          children: updateAll(iRender, source.children, tree.children)
         }, tree.id);
       }
 
@@ -2159,7 +2040,9 @@
     }
 
     if (ltag === 'neep:value') {
-      let value = source.value;
+      let {
+        value
+      } = source;
 
       if (isValue(value)) {
         value = value();
@@ -2174,7 +2057,7 @@
         }, tree.id);
       }
 
-      return replace(iRender, createValue$2(iRender, source, value), tree);
+      return replace(iRender, createValue$1(iRender, source, value), tree);
     }
 
     if (ltag.substr(0, 5) === 'neep:' || ltag === 'template') {
@@ -2188,7 +2071,7 @@
     const {
       node
     } = tree;
-    iRender.update(node, source.props || {});
+    iRender.updateProps(node, source.props || {});
     setRef(ref, node);
 
     if (!source.children.length && !tree.children.length) {
@@ -2206,7 +2089,7 @@
       const children = createAll(iRender, source.children);
 
       for (const it of getNodes(children)) {
-        iRender.insert(node, it);
+        iRender.insertNode(node, it);
       }
 
       return createMountedNode({ ...tree,
@@ -2219,148 +2102,6 @@
       ...source,
       children: updateAll(iRender, source.children, tree.children)
     }, tree.id);
-  }
-
-  function createValue$2(iRender, source, value) {
-    let {
-      ref
-    } = source;
-
-    if (iRender.isNode(value)) {
-      setRef(ref, value);
-      return createMountedNode({ ...source,
-        value,
-        node: value,
-        children: [],
-        component: undefined
-      });
-    }
-
-    const type = typeof value;
-    let node;
-
-    if (type === 'bigint' || type === 'boolean' || type === 'number' || type === 'string' || type === 'symbol' || value instanceof RegExp) {
-      node = iRender.text(String(value));
-    } else if (value instanceof Date) {
-      node = iRender.text(value.toISOString());
-    } else if (type === 'object' && value) {
-      node = iRender.text(String(value));
-    }
-
-    if (!node) {
-      node = iRender.placeholder();
-    }
-
-    setRef(ref, node);
-    return createMountedNode({ ...source,
-      value,
-      node,
-      component: undefined,
-      children: []
-    });
-  }
-
-  function createAll(iRender, source) {
-    if (!source.length) {
-      return [createMountedNode({
-        tag: null,
-        node: iRender.placeholder(),
-        component: undefined,
-        children: []
-      })];
-    }
-
-    return source.map(item => Array.isArray(item) ? createList(iRender, item) : createItem(iRender, item));
-  }
-
-  function createList(iRender, source) {
-    if (source.length) {
-      return source.map(it => createItem(iRender, it));
-    }
-
-    return [createMountedNode({
-      tag: null,
-      node: iRender.placeholder(),
-      component: undefined,
-      children: []
-    })];
-  }
-
-  function createItem(iRender, source) {
-    var _source$children;
-
-    const {
-      tag,
-      ref,
-      component
-    } = source;
-
-    if (!tag) {
-      const node = iRender.placeholder();
-      setRef(ref, node);
-      return createMountedNode({
-        tag: null,
-        node,
-        component: undefined,
-        children: []
-      });
-    }
-
-    const ltag = typeof tag !== 'string' ? '' : tag.toLowerCase();
-
-    if (typeof tag !== 'string' || ltag === 'neep:container') {
-      if (!component) {
-        return createMountedNode({ ...source,
-          node: undefined,
-          component: undefined,
-          children: draw(iRender, source.children)
-        });
-      }
-
-      component.mount();
-      setRef(ref, component.exposed);
-      return createMountedNode({ ...source,
-        node: undefined,
-        component,
-        children: []
-      });
-    }
-
-    if (ltag === 'neep:value') {
-      let value = source.value;
-
-      if (isValue(value)) {
-        value = value();
-      }
-
-      return createValue$2(iRender, source, value);
-    }
-
-    if (ltag.substr(0, 5) === 'neep:' || ltag === 'template') {
-      return createMountedNode({ ...source,
-        node: undefined,
-        component: undefined,
-        children: createAll(iRender, source.children)
-      });
-    }
-
-    const node = iRender.create(tag, source.props || {});
-    setRef(ref, node);
-    let children = [];
-
-    if ((_source$children = source.children) === null || _source$children === void 0 ? void 0 : _source$children.length) {
-      children = createAll(iRender, source.children);
-
-      for (const it of getNodes(children)) {
-        iRender.insert(node, it);
-      }
-    }
-
-    return createMountedNode({ ...source,
-      node,
-      component: undefined,
-      children
-    });
   }
 
   function draw(iRender, source, tree) {
@@ -2550,11 +2291,21 @@
     return obj;
   }
 
+  const components = Object.create(null);
+
+  function register(name, component) {
+    components[name] = component;
+  }
+
   function getComponents(...components) {
     return components.filter(Boolean);
   }
 
   function execSimple(nObject, delivered, node, tag, components, children) {
+    if (node.execed) {
+      return node;
+    }
+
     const {
       iRender
     } = nObject;
@@ -2577,50 +2328,63 @@
         nObject.refresh(f);
       },
 
-      emit: event.emit,
-      valueifyProp: valueify(props)
+      emit: event.emit
     });
 
     {
       getLabel();
     }
 
-    const result = tag(props, context, auxiliary);
+    const result = tag(props, context);
     let label;
 
     {
       label = getLabel();
     }
 
-    const nodes = exec$1(nObject, delivered, renderNode(iRender, result, context, tag[renderSymbol]), slots, getComponents(...components, tag[componentsSymbol]));
+    const nodes = init(nObject, delivered, renderNode(nObject.iRender, result, context, tag[renderSymbol]), slots, getComponents(...components, tag[componentsSymbol]), false);
     return { ...node,
       tag,
+      execed: true,
       children: Array.isArray(nodes) ? nodes : [nodes],
       label
     };
   }
 
-  function execSlot(nObject, delivered, node, slots, components, children, args = [{}], native) {
-    var _node$props;
+  function exec$1(nObject, delivered, node, components) {
+    if (Array.isArray(node)) {
+      return node.map(n => exec$1(nObject, delivered, n, components));
+    }
 
-    const slotName = ((_node$props = node.props) === null || _node$props === void 0 ? void 0 : _node$props.name) || 'default';
-    const slot = slots[slotName];
+    if (!isElement(node)) {
+      return node;
+    }
 
-    if (typeof slot === 'function') {
+    let {
+      tag,
+      children
+    } = node;
+
+    if (tag === Deliver) {
+      const props = { ...node.props
+      };
+      delete props.ref;
+      delete props.slot;
+      delete props.key;
       return { ...node,
-        ...slot(...args)
+        tag,
+        children: children.map(n => exec$1(nObject, updateProps(Object.create(delivered), props || {}, {}, true), n, components))
       };
     }
 
-    const {
-      render
-    } = node;
-    const label =  [`[${slotName}]`, '#00F'];
-    return { ...node,
-      tag: ScopeSlot,
-      label,
-      children: exec$1(nObject, delivered, typeof render !== 'function' ? children : render(...args), slots, components, native)
-    };
+    if (typeof tag !== 'function' || tag[typeSymbol] !== 'simple') {
+      return { ...node,
+        tag,
+        children: children.map(n => exec$1(nObject, delivered, n, components))
+      };
+    }
+
+    return execSimple(nObject, delivered, node, tag, components, children);
   }
 
   function findComponent(tag, components$1) {
@@ -2651,64 +2415,56 @@
     return components[tag] || tag;
   }
 
-  function exec$1(nObject, delivered, node, slots, components, native = false) {
+  function replaceNode(node, slots, components, native) {
+    var _node$props;
+
     if (Array.isArray(node)) {
-      return node.map(n => exec$1(nObject, delivered, n, slots, components, native));
+      return node.map(n => replaceNode(n, slots, components, native));
     }
 
     if (!isElement(node)) {
       return node;
     }
 
-    const {
-      inserted,
+    let {
+      children,
       args = [{}]
     } = node;
     let tag = findComponent(node.tag, components);
-
-    if (tag === Deliver) {
-      const props = { ...node.props
-      };
-      delete props.ref;
-      delete props.slot;
-      delete props.key;
-      const newDelivered = Object.create(delivered);
-      updateProps(newDelivered, props || {}, {}, true);
-      return { ...node,
-        tag,
-        $__neep__delivered: newDelivered,
-        children: node.children.map(n => exec$1(nObject, newDelivered, n, slots, components, native))
-      };
-    }
-
-    const children = node.children.map(n => exec$1(nObject, delivered, n, slots, components, native));
-
-    if (typeof tag === 'function') {
-      if (tag[typeSymbol] === 'simple') {
-        return execSimple(nObject, delivered, node, tag, components, exec$1(nObject, delivered, children, slots, components, native));
-      }
-
-      return { ...node,
-        $__neep__delivered: delivered,
-        children,
-        tag
-      };
-    }
 
     if (tag === Slot) {
       tag = native ? 'slot' : ScopeSlot;
     }
 
-    if (tag !== ScopeSlot || inserted) {
+    if (tag !== ScopeSlot) {
       return { ...node,
-        children,
-        tag
+        tag,
+        children: replaceNode(children, slots, components, native)
       };
     }
 
-    return execSlot(nObject, delivered, { ...node,
-      tag
-    }, slots, components, children, args, native);
+    if (node.tag === ScopeSlot && node.inserted) {
+      return node;
+    }
+
+    const slotName = ((_node$props = node.props) === null || _node$props === void 0 ? void 0 : _node$props.name) || 'default';
+    const slot = slots[slotName];
+
+    if (typeof slot === 'function') {
+      return { ...node,
+        ...slot(...args)
+      };
+    }
+
+    const {
+      render
+    } = node;
+    const label =  [`[${slotName}]`, '#00F'];
+    return { ...node,
+      tag: ScopeSlot,
+      label,
+      children: replaceNode(typeof render !== 'function' ? children : render(...args), slots, components, native)
+    };
   }
 
   function renderNode(iRender, node, context, render) {
@@ -2724,12 +2480,13 @@
       return [{
         [isElementSymbol]: true,
         tag: null,
+        key: undefined,
         children: []
       }];
     }
 
     if (!iRender.isNode(node) && node && typeof node === 'object' && render) {
-      node = render(node, context, auxiliary);
+      node = render(node, context);
     }
 
     if (isElement(node)) {
@@ -2740,69 +2497,29 @@
       return [{
         [isElementSymbol]: true,
         tag: null,
+        key: undefined,
         children: []
       }];
     }
 
     return [{
       [isElementSymbol]: true,
+      key: undefined,
       tag: Value,
       value: node,
       children: []
     }];
   }
 
+  function init(nObject, delivered, node, slots, components, native) {
+    return exec$1(nObject, delivered, replaceNode(node, slots, components, native), components);
+  }
+
   function normalize(nObject, result) {
     const {
       component
     } = nObject;
-    return exec$1(nObject, nObject.delivered, renderNode(nObject.iRender, result, nObject.context, component[renderSymbol]), nObject.context.slots, getComponents(component[componentsSymbol]), Boolean(nObject.native));
-  }
-
-  let delayedRefresh = 0;
-  const objectSet = new Set();
-
-  function wait$1(obj) {
-    if (delayedRefresh <= 0) {
-      return false;
-    }
-
-    objectSet.add(obj);
-    return true;
-  }
-
-  function run$2() {
-    if (delayedRefresh > 0) {
-      return;
-    }
-
-    const list = [...objectSet];
-    objectSet.clear();
-    list.forEach(o => o.refresh());
-  }
-
-  async function asyncRefresh(f) {
-    try {
-      delayedRefresh++;
-      return await f();
-    } finally {
-      delayedRefresh--;
-      run$2();
-    }
-  }
-
-  function refresh(f, async) {
-    if (async) {
-      return asyncRefresh(f);
-    }
-
-    try {
-      delayedRefresh++;
-      return f();
-    } finally {
-      delayedRefresh--;
-      run$2();
-    }
+    return init(nObject, nObject.delivered, renderNode(nObject.iRender, result, nObject.context, component[renderSymbol]), nObject.slots, getComponents(component[componentsSymbol]), Boolean(nObject.native));
   }
 
   function createExposed(obj) {
@@ -2913,6 +2630,15 @@
         configurable: true,
         value: []
       },
+      $_serviceIndex: {
+        configurable: true,
+        value: 0,
+        writable: true
+      },
+      $_services: {
+        configurable: true,
+        value: []
+      },
       callHook: {
         configurable: true,
 
@@ -2947,10 +2673,10 @@
       }
     };
     const entity = Object.create(null, cfg);
-    return entity;
+    return initEntity(entity);
   }
 
-  class NeepObject {
+  class EntityObject {
     constructor(iRender, parent, delivered = (parent === null || parent === void 0 ? void 0 : parent.delivered) || Object.create(null), container) {
       _defineProperty(this, "events", new EventEmitter());
 
@@ -3200,17 +2926,18 @@
     _draw() {}
 
     draw() {
-      var _this$_cancelDrawMoni;
-
       if (this.__executed_destroy) {
         return;
       }
 
-      (_this$_cancelDrawMoni = this._cancelDrawMonitor) === null || _this$_cancelDrawMoni === void 0 ? void 0 : _this$_cancelDrawMoni.call(this);
-      this.callHook('beforeUpdate');
+      if (this._cancelDrawMonitor) {
+        this._cancelDrawMonitor();
+      }
+
+      this.callHook('beforeDraw');
       const result = exec(c => c && this.requestDraw(), () => this._draw());
       this._cancelDrawMonitor = result.stop;
-      complete(() => this.callHook('updated'));
+      complete(() => this.callHook('drawn'));
     }
 
   }
@@ -3268,10 +2995,9 @@
 
       refresh(f) {
         nObject.refresh(f);
-      },
+      }
 
-      valueifyProp: valueify(nObject.props)
-    }, nObject.exposed);
+    }, nObject.entity);
   }
 
   function initRender(nObject) {
@@ -3282,14 +3008,20 @@
       entity
     } = nObject;
 
-    const refresh = changed => changed && nObject.refresh();
+    function refresh(changed) {
+      if (!changed) {
+        return;
+      }
 
-    const result = exec(refresh, () => setCurrent(() => component(props, context, auxiliary), entity), {
+      nObject.refresh();
+    }
+
+    const result = exec(refresh, () => setCurrent(() => component(props, context), entity), {
       resultOnly: true
     });
 
     if (typeof result === 'function') {
-      const render = createExecutable(refresh, () => normalize(nObject, result()));
+      const render = monitor(refresh, () => normalize(nObject, result()));
       return {
         nodes: render(),
         render,
@@ -3297,7 +3029,7 @@
       };
     }
 
-    const render = createExecutable(refresh, () => normalize(nObject, setCurrent(() => component(props, context, auxiliary), entity)));
+    const render = monitor(refresh, () => normalize(nObject, setCurrent(() => component(props, context), entity)));
     return {
       nodes: exec(refresh, () => normalize(nObject, result), {
         resultOnly: true
@@ -3307,9 +3039,9 @@
     };
   }
 
-  class Entity extends NeepObject {
+  class ComponentEntity extends EntityObject {
     constructor(component, props, children, parent, delivered) {
-      var _this$iRender$compone, _this$iRender;
+      var _this$iRender$createC, _this$iRender;
 
       super(parent.iRender, parent, delivered, parent.container);
 
@@ -3341,7 +3073,7 @@
         enumerable: true,
         configurable: true
       });
-      [this.native, this._shadow] = component[typeSymbol] === 'native' && ((_this$iRender$compone = (_this$iRender = this.iRender).component) === null || _this$iRender$compone === void 0 ? void 0 : _this$iRender$compone.call(_this$iRender)) || [];
+      [this.native, this._shadow] = component[typeSymbol] === 'native' && ((_this$iRender$createC = (_this$iRender = this.iRender).createComponent) === null || _this$iRender$createC === void 0 ? void 0 : _this$iRender$createC.call(_this$iRender)) || [];
       this.parent = parent;
       parent.children.add(this.exposed);
       const context = createContext(this);
@@ -3422,13 +3154,13 @@
       this.shadowTree = draw(iRender, _nodes);
 
       for (const it of getNodes(this.shadowTree)) {
-        iRender.insert(_shadow, it);
+        iRender.insertNode(_shadow, it);
       }
 
       this.nativeTree = draw(iRender, nativeNodes);
 
       for (const it of getNodes(this.nativeTree)) {
-        iRender.insert(native, it);
+        iRender.insertNode(native, it);
       }
     }
 
@@ -3481,10 +3213,11 @@
     }
   }
 
-  function createItem$1(nObject, source) {
+  function createItem$1(nObject, delivered, source) {
     if (!source) {
       return {
         tag: null,
+        key: undefined,
         children: []
       };
     }
@@ -3496,6 +3229,7 @@
     if (!tag) {
       return {
         tag: null,
+        key: undefined,
         children: []
       };
     }
@@ -3503,14 +3237,14 @@
     if (typeof tag !== 'string') {
       if (tag[typeSymbol] === 'simple') {
         return { ...source,
-          children: convert(nObject, source.children),
+          children: createAll$1(nObject, delivered, source.children),
           component: undefined
         };
       }
 
       return { ...source,
         children: [],
-        component: new Entity(tag, source.props || {}, source.children, nObject, source.$__neep__delivered)
+        component: new ComponentEntity(tag, source.props || {}, source.children, nObject, delivered)
       };
     }
 
@@ -3523,7 +3257,7 @@
       const iRender = type ? getRender(type) : nObject.iRender;
       return { ...source,
         children: [],
-        component: new Container$1(iRender, source.props || {}, source.children, nObject, source.$__neep__delivered)
+        component: new ContainerEntity(iRender, source.props || {}, source.children, nObject, delivered)
       };
     }
 
@@ -3533,18 +3267,31 @@
       };
     }
 
+    if (ltag === 'neep:deliver') {
+      const props = { ...source.props
+      };
+      delete props.ref;
+      delete props.slot;
+      delete props.key;
+      const newDelivered = updateProps(Object.create(delivered), props, {}, true);
+      return { ...source,
+        delivered: newDelivered,
+        children: createAll$1(nObject, newDelivered, source.children)
+      };
+    }
+
     if (ltag.substr(0, 5) === 'neep:' || ltag === 'template') {
       return { ...source,
-        children: convert(nObject, source.children)
+        children: createAll$1(nObject, delivered, source.children)
       };
     }
 
     return { ...source,
-      children: convert(nObject, source.children)
+      children: createAll$1(nObject, delivered, source.children)
     };
   }
 
-  function updateList$1(nObject, source, tree) {
+  function updateList$1(nObject, delivered, source, tree) {
     if (!Array.isArray(tree)) {
       tree = [tree];
     }
@@ -3561,10 +3308,10 @@
       const index = tree.findIndex(it => it.tag === node.tag && it.key === node.key);
 
       if (index >= 0) {
-        newList.push(updateItem$1(nObject, node, tree[index]));
+        newList.push(updateItem$1(nObject, delivered, node, tree[index]));
         tree.splice(index, 1);
       } else {
-        newList.push(createItem$1(nObject, node));
+        newList.push(createItem$1(nObject, delivered, node));
       }
     }
 
@@ -3572,29 +3319,30 @@
     return newList;
   }
 
-  function updateItem$1(nObject, source, tree) {
+  function updateItem$1(nObject, delivered, source, tree) {
     if (!tree) {
-      return createItem$1(nObject, source);
+      return createItem$1(nObject, delivered, source);
     }
 
     if (!source) {
       destroy(tree);
       return {
         tag: null,
+        key: undefined,
         children: []
       };
     }
 
     if (Array.isArray(tree)) {
       if (!tree.length) {
-        return createItem$1(nObject, source);
+        return createItem$1(nObject, delivered, source);
       }
 
       const index = tree.findIndex(it => it.tag === source.tag);
 
       if (index < 0) {
         destroy(tree);
-        return createItem$1(nObject, source);
+        return createItem$1(nObject, delivered, source);
       }
 
       const all = tree;
@@ -3608,12 +3356,13 @@
 
     if (tag !== tree.tag) {
       destroy(tree);
-      return createItem$1(nObject, source);
+      return createItem$1(nObject, delivered, source);
     }
 
     if (!tag) {
       return {
         tag: null,
+        key: undefined,
         children: []
       };
     }
@@ -3621,7 +3370,7 @@
     if (typeof tag !== 'string') {
       if (tag[typeSymbol] === 'simple') {
         return { ...source,
-          children: convert(nObject, source.children, tree.children),
+          children: [...updateAll$1(nObject, delivered, source.children, tree.children)],
           component: undefined
         };
       }
@@ -3631,7 +3380,7 @@
       } = tree;
 
       if (!component) {
-        return createItem$1(nObject, source);
+        return createItem$1(nObject, delivered, source);
       }
 
       component.update(source.props || {}, source.children);
@@ -3651,14 +3400,14 @@
       } = tree;
 
       if (!component) {
-        return createItem$1(nObject, source);
+        return createItem$1(nObject, delivered, source);
       }
 
       const type = source === null || source === void 0 ? void 0 : (_source$props2 = source.props) === null || _source$props2 === void 0 ? void 0 : _source$props2.type;
       const iRender = type ? getRender(type) : nObject.iRender;
 
       if (iRender !== component.iRender) {
-        return createItem$1(nObject, source);
+        return createItem$1(nObject, delivered, source);
       }
 
       component.update(source.props || {}, source.children);
@@ -3674,44 +3423,53 @@
       };
     }
 
-    if (ltag.substr(0, 5) === 'neep:' || ltag === 'template') {
-      let delivered;
-
-      if (ltag === 'neep:deliver') {
-        const props = { ...source.props
-        };
-        delete props.ref;
-        delete props.slot;
-        delete props.key;
-        delivered = updateProps(tree.$__neep__delivered, props, tree.props, true);
-      }
-
+    if (ltag === 'neep:deliver') {
+      const props = { ...source.props
+      };
+      delete props.ref;
+      delete props.slot;
+      delete props.key;
+      const newDelivered = updateProps(tree.delivered || Object.create(delivered), props, tree.props, true);
       return { ...source,
-        $__neep__delivered: delivered,
-        children: convert(nObject, source.children, tree.children)
+        delivered: newDelivered,
+        children: [...updateAll$1(nObject, newDelivered, source.children, tree.children)]
+      };
+    }
+
+    if (ltag.substr(0, 5) === 'neep:' || ltag === 'template') {
+      return { ...source,
+        children: [...updateAll$1(nObject, delivered, source.children, tree.children)]
       };
     }
 
     return { ...source,
-      children: convert(nObject, source.children, tree.children)
+      children: [...updateAll$1(nObject, delivered, source.children, tree.children)]
     };
   }
 
-  function createAll$1(nObject, source) {
+  function createAll$1(nObject, delivered, source) {
+    if (!Array.isArray(source)) {
+      source = [source];
+    }
+
     if (!source.length) {
       return [];
     }
 
     return source.map(item => {
       if (!Array.isArray(item)) {
-        return createItem$1(nObject, toElement(item));
+        return createItem$1(nObject, delivered, toElement(item));
       }
 
-      return [...recursive2iterable(item)].map(it => createItem$1(nObject, toElement(it)));
+      return [...recursive2iterable(item)].map(it => createItem$1(nObject, delivered, toElement(it)));
     });
   }
 
-  function* updateAll$1(nObject, source, tree) {
+  function* updateAll$1(nObject, delivered, source, tree) {
+    if (!Array.isArray(source)) {
+      source = [source];
+    }
+
     let index = 0;
     let length = Math.min(source.length, source.length);
 
@@ -3719,9 +3477,9 @@
       const src = source[index];
 
       if (Array.isArray(src)) {
-        yield updateList$1(nObject, src, tree[index]);
+        yield updateList$1(nObject, delivered, src, tree[index]);
       } else {
-        yield updateItem$1(nObject, toElement(src), tree[index]);
+        yield updateItem$1(nObject, delivered, toElement(src), tree[index]);
       }
     }
 
@@ -3738,24 +3496,20 @@
         const src = toElement(source[index]);
 
         if (Array.isArray(src)) {
-          yield [...recursive2iterable(src)].map(it => createItem$1(nObject, it));
+          yield [...recursive2iterable(src)].map(it => createItem$1(nObject, delivered, it));
         } else {
-          yield createItem$1(nObject, src);
+          yield createItem$1(nObject, delivered, src);
         }
       }
     }
   }
 
   function convert(nObject, source, tree) {
-    if (!Array.isArray(source)) {
-      source = [source];
-    }
-
     if (!tree) {
-      return createAll$1(nObject, source);
+      return createAll$1(nObject, nObject.delivered, source);
     }
 
-    return [...updateAll$1(nObject, source, tree)];
+    return [...updateAll$1(nObject, nObject.delivered, source, tree)];
   }
 
   let awaitDraw = new Set();
@@ -3777,7 +3531,7 @@
     });
   }
 
-  class Container$1 extends NeepObject {
+  class ContainerEntity extends EntityObject {
     constructor(iRender, props, children, parent, delivered) {
       super(iRender, parent, delivered);
 
@@ -3809,10 +3563,20 @@
       }
 
       this.callHook('beforeCreate');
+      this.childNodes = children;
 
-      this._render = () => children;
+      const refresh = changed => {
+        if (!changed) {
+          return;
+        }
 
-      this._nodes = convert(this, children);
+        this._drawChildren = true;
+        this.refresh();
+      };
+
+      const slots = Object.create(null);
+      this._render = monitor(refresh, () => init(this, this.delivered, this.childNodes, slots, [], false));
+      this._nodes = convert(this, this._render());
       this.callHook('created');
       this.created = true;
     }
@@ -3823,9 +3587,6 @@
       }
 
       this.childNodes = children;
-
-      this._render = () => children;
-
       this._drawChildren = true;
       this.refresh();
     }
@@ -3862,11 +3623,12 @@
       const [container, node] = iRender.mount(props, parent === null || parent === void 0 ? void 0 : parent.iRender);
 
       for (const it of getNodes(content)) {
-        iRender.insert(container, it);
+        iRender.insertNode(container, it);
       }
 
       this.tree = [createMountedNode({
         tag: Value,
+        key: undefined,
         component: undefined,
         node,
         value: node,
@@ -3947,9 +3709,9 @@
         return;
       }
 
-      this.callHook('beforeUpdate');
+      this.callHook('beforeDraw');
       exec(c => c && this.markDraw(this), () => this._drawSelf());
-      complete(() => this.callHook('updated'));
+      complete(() => this.callHook('drawn'));
     }
 
     markDraw(nObject, remove = false) {
@@ -3994,7 +3756,7 @@
       }
 
       list.map(c => c.draw());
-      this.iRender.draw(container, node);
+      this.iRender.drawNode(container, node);
       complete(() => this.callHook('drawn'));
     }
 
@@ -4034,7 +3796,7 @@
   function render(e, p = {}) {
     let params = { ...p
     };
-    const container = new Container$1(getRender(p.type), params, e === undefined ? [] : isElement(e) ? [e] : [createElement(e)]);
+    const container = new ContainerEntity(getRender(p.type), params, e === undefined ? [] : isElement(e) ? [e] : [createElement(e)]);
 
     {
       devtools.renderHook(container);
@@ -4083,7 +3845,6 @@
         }
 
         container.unmount();
-        return;
       },
 
       configurable: true
@@ -4096,8 +3857,41 @@
     return exposed;
   }
 
+  function Mark(symbol, value) {
+    return component => {
+      component[symbol] = value;
+      return component;
+    };
+  }
+
+  function mName(name, component) {
+    if (!component) {
+      return Mark(nameSymbol, name);
+    }
+
+    component[nameSymbol] = name;
+    return component;
+  }
+
+  function mSimple(component) {
+    if (!component) {
+      return Mark(typeSymbol, 'simple');
+    }
+
+    component[typeSymbol] = 'simple';
+    return component;
+  }
+
+  function create$1(c, r) {
+    if (typeof r === 'function') {
+      c[renderSymbol] = r;
+    }
+
+    return c;
+  }
+
   /*!
-   * NeepWebRender v0.1.0-alpha.9
+   * NeepWebRender v0.1.0-alpha.12
    * (c) 2019-2020 Fierflame
    * @license MIT
    */
@@ -4220,7 +4014,7 @@
       if (typeof value === 'number') {
         css[key] = [value === 0 ? '0' : `${value}px`, null];
       } else if (value && typeof value === 'string') {
-        const v = value.replace(/\!important\s*$/, '');
+        const v = value.replace(/!important\s*$/, '');
         css[key] = [v, v === value ? null : 'important'];
       }
     }
@@ -4569,6 +4363,16 @@
     return document.createElementNS(ns in xmlnsMap && xmlnsMap[ns] || ns, tag);
   }
 
+  const tagRegex = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)?(?::[a-z0-9]+(?:-[a-z0-9]+)?)?$/i;
+
+  function isTagName(tag) {
+    if (typeof tag !== 'string') {
+      return false;
+    }
+
+    return tagRegex.test(tag);
+  }
+
   const render$1 = {
     type: 'web',
     nextFrame: nextFrame$1,
@@ -4583,11 +4387,11 @@
       style,
       tag
     }, parent) {
-      if (!(typeof tag === 'string' && /^[a-z][a-z0-9]*(?:\-[a-z0-9]+)?(?:\:[a-z0-9]+(?:\-[a-z0-9]+)?)?$/i.test(tag))) {
+      if (!isTagName(tag)) {
         tag = 'div';
       }
 
-      const container = render$1.create(tag, {
+      const container = render$1.createElement(tag, {
         class: className,
         style
       });
@@ -4600,7 +4404,7 @@
         target.appendChild(container);
 
         if (parent) {
-          return [container, parent.placeholder()];
+          return [container, parent.createPlaceholder()];
         }
 
         return [container, container];
@@ -4628,7 +4432,7 @@
       style,
       tag
     }, parent) {
-      render$1.update(container, {
+      render$1.updateProps(container, {
         class: className,
         style
       });
@@ -4641,7 +4445,7 @@
         target = document.body;
       }
 
-      const oldTarget = parent === render$1 && container === node ? undefined : render$1.parent(node);
+      const oldTarget = parent === render$1 && container === node ? undefined : render$1.getParent(node);
 
       if (oldTarget === target) {
         return [container, node];
@@ -4653,23 +4457,23 @@
       }
 
       if (!oldTarget) {
-        const newNode = parent.placeholder();
-        const pNode = parent.parent(node);
+        const newNode = parent.createPlaceholder();
+        const pNode = parent.getParent(node);
 
         if (pNode) {
-          render$1.insert(pNode, newNode, node);
-          render$1.remove(node);
+          render$1.insertNode(pNode, newNode, node);
+          render$1.removeNode(node);
         }
 
         return [container, newNode];
       }
 
       if (!target) {
-        const pNode = parent.parent(node);
+        const pNode = parent.getParent(node);
 
         if (pNode) {
-          render$1.insert(pNode, container, node);
-          render$1.remove(node);
+          render$1.insertNode(pNode, container, node);
+          render$1.removeNode(node);
         }
 
         return [container, container];
@@ -4679,51 +4483,93 @@
       return [container, node];
     },
 
-    draw() {},
+    drawNode() {},
 
-    create(tag, props) {
+    createElement(tag, props) {
       return update$3(createElement$1(tag), props);
     },
 
-    text(text) {
+    createText(text) {
       return document.createTextNode(text);
     },
 
-    placeholder() {
+    createPlaceholder() {
       return document.createComment('');
     },
 
-    component() {
+    createComponent() {
       const node = createElement$1('neep-component');
       return [node, node.attachShadow({
         mode: 'open'
       })];
     },
 
-    parent(node) {
+    getParent(node) {
       return node.parentNode;
     },
 
-    next(node) {
+    nextNode(node) {
       return node.nextSibling;
     },
 
-    update(node, props) {
+    updateProps(node, props) {
       update$3(node, props);
     },
 
-    insert(parent, node, next = null) {
+    insertNode(parent, node, next = null) {
       parent.insertBefore(node, next);
     },
 
-    remove(node) {
-      const p = render$1.parent(node);
+    removeNode(node) {
+      const p = render$1.getParent(node);
 
       if (!p) {
         return;
       }
 
       p.removeChild(node);
+    },
+
+    getRect(node) {
+      if (node instanceof Element) {
+        const {
+          top,
+          right,
+          bottom,
+          left,
+          width,
+          height
+        } = node.getBoundingClientRect();
+        return {
+          top,
+          right,
+          bottom,
+          left,
+          width,
+          height
+        };
+      }
+
+      if (node instanceof ShadowRoot) {
+        const {
+          top,
+          right,
+          bottom,
+          left,
+          width,
+          height
+        } = node.host.getBoundingClientRect();
+        return {
+          top,
+          right,
+          bottom,
+          left,
+          width,
+          height
+        };
+      }
+
+      return null;
     }
 
   };
@@ -4732,7 +4578,7 @@
   });
 
   /*!
-   * NeepDevtools v0.1.0-alpha.4
+   * NeepDevtools v0.1.0-alpha.7
    * (c) 2019-2020 Fierflame
    * @license MIT
    */
@@ -4765,7 +4611,7 @@
     }
 
     const {
-      id,
+      id: tagId,
       tag,
       props,
       children,
@@ -4776,7 +4622,7 @@
 
     if (!tag) {
       return yield {
-        id,
+        tagId,
         parent,
         type: Type.placeholder,
         tag: 'placeholder',
@@ -4789,7 +4635,7 @@
 
       if (!component) {
         return yield {
-          id,
+          tagId,
           parent,
           type: Type.simple,
           tag: name,
@@ -4802,11 +4648,11 @@
 
       const isNative = tag[typeSymbol] === 'native';
       return yield {
-        id,
+        tagId,
         parent,
         type: isNative ? Type.native : Type.standard,
         tag: name,
-        children: [...getTree('content' in component ? component.content : isNative ? component.nativeTree : component.tree)],
+        children: [...getTree(isNative ? component.nativeTree : component.tree)],
         props,
         key,
         label
@@ -4815,13 +4661,26 @@
 
     const ltag = tag.toLowerCase();
 
+    if (ltag === 'neep:container') {
+      return yield {
+        tagId,
+        parent,
+        type: Type.container,
+        tag: ltag,
+        children: [...getTree(component ? component.content : children)],
+        props,
+        key,
+        label
+      };
+    }
+
     if (ltag === 'neep:value') {
       const treeValue = tree.value;
       return yield {
-        id,
+        tagId,
         parent,
         type: Type.special,
-        tag,
+        tag: ltag,
         children: [],
         isNative: treeValue === tree.node,
         value: treeValue,
@@ -4833,10 +4692,10 @@
 
     if (ltag.substr(0, 5) === 'neep:' || ltag === 'template') {
       return yield {
-        id,
+        tagId,
         parent,
         type: Type.special,
-        tag,
+        tag: ltag,
         children: [...getTree(children)],
         props,
         key,
@@ -4845,7 +4704,7 @@
     }
 
     yield {
-      id,
+      tagId,
       parent,
       type: Type.tag,
       tag,
@@ -4911,47 +4770,79 @@
     }, "\xA0]"));
   }
 
-  function getOptions({
-    value = false,
-    tag = false,
-    placeholder = false,
-    simple = false,
-    container = false,
-    template = false,
-    scopeSlot = false,
-    slotRender = false,
-    deliver = false
-  }) {
-    return {
-      value,
-      tag,
-      placeholder,
-      simple,
-      container,
-      template,
-      scopeSlot,
-      slotRender,
-      deliver
-    };
+  function getKey(key) {
+    if (typeof key === 'string') {
+      return ` key=${JSON.stringify(key)}`;
+    }
+
+    if (typeof key === 'number') {
+      return ` key=${key}`;
+    }
+
+    if (typeof key === 'boolean') {
+      return ` key=${key}`;
+    }
+
+    if (typeof key === 'bigint') {
+      return ` key=${key}`;
+    }
+
+    if (typeof key === 'symbol') {
+      return ` key=${String(key)}`;
+    }
+
+    if (key === null) {
+      return ` key=${key}`;
+    }
+
+    if (key !== undefined) {
+      return ` key=${String(key)}`;
+    }
   }
 
-  function createTag(name, keys, id, key, labels, ...children) {
-    const opened = keys[id];
-    const hasChildren = Boolean(children.length);
-    return createElement("div", {
-      key: id,
-      style: " position: relative; min-height: 20px; font-size: 14px; line-height: 20px; "
-    }, children.length && createElement("div", {
-      style: " position: absolute; left: -20px; top: 0; width: 20px; height: 20px; text-align: center; cursor: pointer; background: #DDD;; ",
-      onclick: () => keys[id] = !opened
-    }, opened ? '-' : '+') || undefined, createElement("div", null, '<', name, typeof key === 'string' ? ` key="${key}"` : typeof key === 'number' ? ` key=${key}` : typeof key === 'boolean' ? ` key=${key}` : typeof key === 'bigint' ? ` key=${key}` : typeof key === 'symbol' ? ` key=${String(key)}` : key === null ? ` key=${key}` : key !== undefined && ` key={${String(key)}}`, hasChildren ? '>' : ' />', hasChildren && !opened && createElement("span", null, createElement("span", {
-      onclick: () => keys[id] = true,
-      style: "cursor: pointer;"
-    }, "..."), '</', name, '>'), hasChildren && labels.filter(Boolean).map(([v, color]) => createElement("span", {
+  function getLabels(labels) {
+    return labels.filter(Boolean).map(([v, color]) => createElement("span", {
       style: `color: ${color || '#000'}`
-    }, v))), hasChildren && opened && createElement("div", {
+    }, v));
+  }
+
+  function Tag({
+    keys,
+    tagId,
+    key,
+    labels,
+    options,
+    children
+  }) {
+    const opened = keys[tagId];
+    const childNodes = opened ? [...getList(children, keys, options)] : [];
+    const hasChildNodes = Boolean(opened && childNodes.length);
+    return createElement("div", {
+      key: tagId,
+      style: " position: relative; min-height: 20px; font-size: 14px; line-height: 20px; "
+    }, createElement("div", {
+      style: " position: absolute; left: -20px; top: 0; width: 20px; height: 20px; text-align: center; cursor: pointer; background: #DDD;; ",
+      onclick: () => keys[tagId] = !opened
+    }, opened ? '-' : '+'), createElement("div", null, '<', createElement(Slot, null), getKey(key), '>', !hasChildNodes && createElement("template", null, opened ? createElement("span", null) : createElement("span", {
+      onclick: () => keys[tagId] = true,
+      style: "cursor: pointer;"
+    }, "..."), '</', createElement(Slot, null), '>'), getLabels(labels)), hasChildNodes && createElement("template", null, createElement("div", {
       style: "padding-left: 20px"
-    }, children), opened && hasChildren && createElement("div", null, '</', name, '>'));
+    }, childNodes), createElement("div", null, '</', createElement(Slot, null), '>')));
+  }
+
+  function PlaceholderTag({
+    name = 'placeholder',
+    tagId,
+    key,
+    labels
+  }) {
+    return createElement("div", {
+      key: tagId,
+      style: " position: relative; min-height: 20px; font-size: 14px; line-height: 20px; "
+    }, '<', createElement("span", {
+      style: "font-style: italic;"
+    }, name), getKey(key), '/>', getLabels(labels));
   }
 
   function* getList(list, keys, options, labels = []) {
@@ -4964,7 +4855,7 @@
     }
 
     const {
-      id,
+      tagId,
       type,
       tag,
       children,
@@ -4974,29 +4865,51 @@
       value,
       isNative
     } = list;
+    const labelList = [label, ...labels];
 
     if (type === Type.standard || type === Type.native) {
-      return yield createTag(createElement("span", {
+      return yield createElement(Tag, {
+        keys: keys,
+        tagId: tagId,
+        key: key,
+        labels: labelList,
+        options: options,
+        children: children
+      }, createElement("span", {
         style: "font-weight: bold;"
-      }, tag), keys, id, key, [label, ...labels], ...getList(children, keys, options));
+      }, tag));
     }
 
     if (type === Type.tag) {
       if (!options.tag) {
-        return yield* getList(children, keys, options, [label, ...labels]);
+        return yield* getList(children, keys, options, labelList);
       }
 
-      return yield createTag(tag, keys, id, key, [label, ...labels], ...getList(children, keys, options));
+      return yield createElement(Tag, {
+        keys: keys,
+        tagId: tagId,
+        key: key,
+        labels: labelList,
+        options: options,
+        children: children
+      }, tag);
     }
 
     if (type === Type.simple) {
       if (!options.simple) {
-        return yield* getList(children, keys, options, [label, ...labels]);
+        return yield* getList(children, keys, options, labelList);
       }
 
-      return yield createTag(createElement("span", {
+      return yield createElement(Tag, {
+        keys: keys,
+        tagId: tagId,
+        key: key,
+        labels: labelList,
+        options: options,
+        children: children
+      }, createElement("span", {
         style: " font-style: italic; font-weight: bold; "
-      }, tag), keys, id, key, [label, ...labels], ...getList(children, keys, options));
+      }, tag));
     }
 
     if (type === Type.placeholder) {
@@ -5004,59 +4917,82 @@
         return;
       }
 
-      return yield createTag(createElement("span", {
-        style: "font-style: italic;"
-      }, "placeholder"), keys, id, key, [label, ...labels], ...getList(children, keys, options));
+      return yield createElement(PlaceholderTag, {
+        tagId: tagId,
+        key: key,
+        labels: labelList
+      });
     }
 
     if (type === Type.container) {
       if (!options.container) {
-        return yield* getList(children, keys, options, [label, ...labels]);
+        return yield* getList(children, keys, options, labelList);
       }
 
-      return yield createTag(createElement("span", {
+      return yield createElement(Tag, {
+        keys: keys,
+        tagId: tagId,
+        key: key,
+        labels: labelList,
+        options: options,
+        children: children
+      }, createElement("span", {
         style: "font-style: italic;"
-      }, "container"), keys, id, key, [label, ...labels], ...getList(children, keys, options));
+      }, "container"));
     }
 
-    const ltag = tag.toLowerCase();
-
-    if (ltag === 'neep:deliver') {
+    if (tag === 'neep:deliver') {
       if (!options.deliver) {
-        return yield* getList(children, keys, options, [label, ...labels]);
+        return yield* getList(children, keys, options, labelList);
       }
 
-      return yield createTag(createElement("span", {
+      return yield createElement(Tag, {
+        keys: keys,
+        tagId: tagId,
+        key: key,
+        labels: labelList,
+        options: options,
+        children: children
+      }, createElement("span", {
         style: "font-style: italic;"
-      }, "Deliver"), keys, id, key, [label, ...labels], ...getList(children, keys, options));
+      }, "Deliver"));
     }
 
-    if (ltag === 'template') {
+    if (tag === 'template') {
       if (!options.template) {
-        return yield* getList(children, keys, options, [label, ...labels]);
+        return yield* getList(children, keys, options, labelList);
       }
 
-      return yield createTag(createElement("span", {
+      return yield createElement(Tag, {
+        keys: keys,
+        tagId: tagId,
+        key: key,
+        labels: labelList,
+        options: options,
+        children: children
+      }, createElement("span", {
         style: "font-style: italic;"
-      }, "Template"), keys, id, key, [label, ...labels], ...getList(children, keys, options));
+      }, "Template"));
     }
 
-    if (ltag === 'neep:scopeslot' || ltag === 'neep:scope-slot') {
+    if (tag === 'neep:scopeslot' || tag === 'neep:scope-slot') {
       if (!options.scopeSlot) {
-        return yield* getList(children, keys, options, [label, ...labels]);
+        return yield* getList(children, keys, options, labelList);
       }
 
-      return yield createTag(createElement("span", {
+      return yield createElement(Tag, {
+        keys: keys,
+        tagId: tagId,
+        key: key,
+        labels: labelList,
+        options: options,
+        children: children
+      }, createElement("span", {
         style: "font-style: italic;"
-      }, "ScopeSlot"), keys, id, key, [label, ...labels], ...getList(children, keys, options));
+      }, "ScopeSlot"));
     }
 
-    if (ltag === 'neep:slotrender' || ltag === 'neep:slot-render') {
-      if (options.slotRender) ;
-      return;
-    }
-
-    if (ltag === 'neep:value') {
+    if (tag === 'neep:value') {
       if (!options.tag) {
         return;
       }
@@ -5070,14 +5006,76 @@
         value: value
       });
     }
+
+    if (tag === 'neep:slotrender' || tag === 'neep:slot-render') {
+      if (options.slotRender) {
+        return yield createElement(PlaceholderTag, {
+          tagId: tagId,
+          key: key,
+          labels: labelList,
+          name: "SlotRender"
+        });
+      }
+
+      return;
+    }
   }
 
-  var App = props => {
+  var Tree = props => {
     const keys = encase({});
     return () => createElement("div", {
       style: "padding-left: 20px;"
-    }, [...getList(props.tree, keys, getOptions(props))]);
+    }, [...getList(props.tree, keys, props.options)]);
   };
+
+  function Devtools(props, {}) {
+    return createElement("div", null, createElement(Slot, {
+      name: "settings"
+    }), createElement(Slot, {
+      name: "tree"
+    }));
+  }
+
+  function Settings(props) {
+    const options = asValue(props.options);
+    const value = options('value');
+    const tag = options('tag');
+    const placeholder = options('placeholder');
+    const simple = options('simple');
+    const container = options('container');
+    const template = options('template');
+    const scopeSlot = options('scopeSlot');
+    const slotRender = options('slotRender');
+    const deliver = options('deliver');
+    return createElement("div", null, createElement("label", null, createElement("input", {
+      type: "checkbox",
+      checked: value
+    }), "value"), createElement("label", null, createElement("input", {
+      type: "checkbox",
+      checked: tag
+    }), "tag"), createElement("label", null, createElement("input", {
+      type: "checkbox",
+      checked: placeholder
+    }), "placeholder"), createElement("label", null, createElement("input", {
+      type: "checkbox",
+      checked: simple
+    }), "simple"), createElement("label", null, createElement("input", {
+      type: "checkbox",
+      checked: container
+    }), "container"), createElement("label", null, createElement("input", {
+      type: "checkbox",
+      checked: template
+    }), "template"), createElement("label", null, createElement("input", {
+      type: "checkbox",
+      checked: scopeSlot
+    }), "scopeSlot"), createElement("label", null, createElement("input", {
+      type: "checkbox",
+      checked: slotRender
+    }), "slotRender"), createElement("label", null, createElement("input", {
+      type: "checkbox",
+      checked: deliver
+    }), "deliver"));
+  }
 
   let creating = false;
 
@@ -5085,44 +5083,61 @@
     creating = true;
 
     try {
-      return render();
+      return {
+        options: encase({
+          value: false,
+          tag: false,
+          placeholder: false,
+          simple: false,
+          container: false,
+          template: false,
+          scopeSlot: false,
+          slotRender: false,
+          deliver: false
+        }),
+        exposed: render()
+      };
     } finally {
       creating = false;
     }
   }
 
-  const devtools$1 = {
-    renderHook(container) {
-      if (creating) {
-        return;
-      }
-
-      let app;
-
-      const getData = () => {
-        if (!app) {
-          app = create$2();
-        }
-
-        const tree = [...getTree(container.content)];
-        app.$update(createElement(App, {
-          tree,
-          value: true,
-          tag: true
-        }));
-      };
-
-      setHook('drawnAll', getData, container.entity);
-      setHook('mounted', () => {
-        if (!app) {
-          app = create$2();
-        }
-
-        getData();
-        app.$mount();
-      }, container.entity);
+  function renderHook(container) {
+    if (creating) {
+      return;
     }
 
+    let app;
+
+    const getData = () => {
+      if (!app) {
+        app = create$2();
+      }
+
+      const tree = [...getTree(container.content)];
+      app.exposed.$update(createElement(Devtools, null, createElement(Tree, {
+        slot: "tree",
+        tree: tree,
+        options: app.options
+      }), createElement(Settings, {
+        slot: "settings",
+        options: app.options
+      })));
+    };
+
+    setHook('drawnAll', getData, container.entity);
+    setHook('mounted', () => {
+      if (!app) {
+        app = create$2();
+      }
+
+      getData();
+      app.exposed.$mount();
+    }, container.entity);
+  }
+
+  const devtools$1 = {
+    renderHook
   };
   install$1()({
     devtools: devtools$1
@@ -5158,9 +5173,6 @@
   function InsertView(props, {
     insertable: contextInsertable,
     childNodes
-  }, {
-    createElement,
-    Deliver
   }) {
     const {
       name,
@@ -5319,6 +5331,7 @@
       }, ...p);
 
       mName('Insertable', view);
+      mSimple(view);
       Reflect.defineProperty(this, 'view', {
         value: view,
         enumerable: true,
@@ -5337,23 +5350,17 @@
 
   }
 
-  _defineProperty$1(Insertable, "version", '0.0.0');
+  _defineProperty$1(Insertable, "version", '0.1.0-alpha.0');
 
   // 可以从其他文件 import 进来
 
   const Com1 = create$1((props, {
     emit
-  }, {
-    createElement
   }) => createElement("div", {
     "on-click": () => emit('click', '666')
   }, props.customAttribute, "\u7EC4\u4EF61"));
-  const Com2 = create$1((p, {}, {
-    createElement
-  }) => createElement("div", null, "\u7EC4\u4EF62"));
-  const Com3 = create$1((p, {}, {
-    createElement
-  }) => createElement("div", null, "\u7EC4\u4EF63"));
+  const Com2 = create$1((p, {}) => createElement("div", null, "\u7EC4\u4EF62"));
+  const Com3 = create$1((p, {}) => createElement("div", null, "\u7EC4\u4EF63"));
   mName('Com1', Com1);
   mName('Com2', Com2);
   mName('Com3', Com3); // 2. 创建 insertable 实例
@@ -5370,22 +5377,17 @@
 
   insertable.add('insert2', 'div');
   window.insertable = insertable;
-  const App$1 = create$1((props, context, {
-    createElement
-  }) => createElement(Insertable.View, {
-    insertable: insertable
-  }, createElement("insert-view", {
+  var App = createElement(insertable.view, null, createElement(Insertable.View, {
     name: "insert1",
     customAttribute: "myValue"
-  }), createElement("hr", null), createElement("insert-view", {
+  }), createElement("hr", null), createElement(Insertable.View, {
     name: "insert2",
     customAttribute: "myValue"
-  }), createElement("hr", null), createElement("insert-view", {
+  }), createElement("hr", null), createElement(Insertable.View, {
     name: "insert1"
-  })));
-  mName('App', App$1);
+  }));
 
-  render(App$1).$mount();
+  render(App).$mount();
 
 })));
 //# sourceMappingURL=index.js.map
