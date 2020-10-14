@@ -16,6 +16,9 @@ export default {
 	plugins: [
 		alias({
 			entries: {
+				'@neep/core': '../neep.js/packages/core/src/index.ts',
+				'@neep/web-render': '../neep.js/packages/web-render/src/index.ts',
+				'@neep/devtools': '../neep.devtools.js/src/index.ts',
 				'@neep/insertable': './src/index.ts',
 			},
 		}),
