@@ -2,6 +2,7 @@ import { Component, mName, mSimple } from '@neep/core';
 import install from './install';
 import { encase } from './install/neep';
 import InsertView from './InsertView';
+import { version } from './constants';
 
 export type InsertableComponent = string | Component<any, any>;
 export interface Info {
@@ -96,6 +97,6 @@ class Insertable {
 	}
 	static get install() { return install; };
 	static get View() { return InsertView; };
-	static readonly version = '__VERSION__';
+	static get version() { return version; };
 }
 export default Insertable;

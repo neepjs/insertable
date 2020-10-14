@@ -2,7 +2,7 @@ export {
 	encase,
 	register,
 	createElement,
-	Deliver,
+	createDeliver,
 	addContextConstructor,
 } from '@neep/core';
 export default function installNeep(Neep: typeof import ('@neep/core')) {

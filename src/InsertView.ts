@@ -1,6 +1,7 @@
 import Insertable from './Insertable';
 import { mSimple, mName, Context } from '@neep/core';
-import { createElement, Deliver } from './install/neep';
+import { createElement } from './install/neep';
+import { InsertableDeliver } from './install/initDelivers';
 
 export interface Props {
 	name?: string;
@@ -13,16 +14,16 @@ export default function InsertView(
 ) {
 	const { name, insertable } = props;
 	if (!name && insertable instanceof Insertable) {
-		return createElement(Deliver, {
-			__NeepInsertable__: insertable,
+		return createElement(InsertableDeliver, {
+			value: insertable,
 		}, ...childNodes);
 	}
 	if (!name) { return childNodes; }
 	if (insertable instanceof Insertable) {
 		const list = insertable.get(name);
 		if (!list) { return null; }
-		return createElement(Deliver, {
-			__NeepInsertable__: insertable,
+		return createElement(InsertableDeliver, {
+			value: insertable,
 		}, list.map(t => createElement(t.component, props, ...childNodes)));
 	}
 	if (!(contextInsertable instanceof Insertable)) {
