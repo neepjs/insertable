@@ -1,13 +1,13 @@
 /*!
- * NeepInsertable v0.1.0-alpha.0
+ * NeepInsertable v0.1.0-alpha.2
  * (c) 2020 Fierflame
  * @license MIT
  */
 (function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('@neep/core')) :
-	typeof define === 'function' && define.amd ? define(['@neep/core'], factory) :
-	(global = global || self, global.NeepInsertable = factory(global.Neep));
-}(this, (function (core) { 'use strict';
+	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('@neep/core')) :
+	typeof define === 'function' && define.amd ? define(['exports', '@neep/core'], factory) :
+	(global = global || self, factory(global.NeepInsertable = {}, global.Neep));
+}(this, (function (exports, core) { 'use strict';
 
 	function _defineProperty(obj, key, value) {
 	  if (key in obj) {
@@ -24,9 +24,14 @@
 	  return obj;
 	}
 
+	let InsertableDeliver;
+	function initDelivers() {
+	  InsertableDeliver = core.createDeliver();
+	}
+
 	function contextConstructor(context) {
 	  Reflect.defineProperty(context, 'insertable', {
-	    value: context.delivered.__NeepInsertable__,
+	    value: context.delivered(InsertableDeliver),
 	    enumerable: true,
 	    configurable: true
 	  });
@@ -39,9 +44,6 @@
 	function InsertView(props, {
 	  insertable: contextInsertable,
 	  childNodes
-	}, {
-	  createElement,
-	  Deliver
 	}) {
 	  const {
 	    name,
@@ -49,8 +51,8 @@
 	  } = props;
 
 	  if (!name && insertable instanceof Insertable) {
-	    return createElement(Deliver, {
-	      __NeepInsertable__: insertable
+	    return core.createElement(InsertableDeliver, {
+	      value: insertable
 	    }, ...childNodes);
 	  }
 
@@ -65,9 +67,9 @@
 	      return null;
 	    }
 
-	    return createElement(Deliver, {
-	      __NeepInsertable__: insertable
-	    }, list.map(t => createElement(t.component, props, ...childNodes)));
+	    return core.createElement(InsertableDeliver, {
+	      value: insertable
+	    }, list.map(t => core.createElement(t.component, props, ...childNodes)));
 	  }
 
 	  if (!(contextInsertable instanceof Insertable)) {
@@ -80,7 +82,7 @@
 	    return null;
 	  }
 
-	  return list.map(t => createElement(t.component, props, ...childNodes));
+	  return list.map(t => core.createElement(t.component, props, ...childNodes));
 	}
 	core.mSimple(InsertView);
 	core.mName('InsertView', InsertView);
@@ -90,9 +92,15 @@
 	  core.register('insert-view', InsertView);
 	}
 
+	var moduleList = [installComponents, installContextConstructor, initDelivers];
+
 	function install(Neep) {}
-	installComponents();
-	installContextConstructor();
+
+	for (const f of moduleList) {
+	  f();
+	}
+
+	const version = '0.1.0-alpha.2';
 
 	class Insertable {
 	  constructor(parent) {
@@ -200,6 +208,7 @@
 	    }, ...p);
 
 	    core.mName('Insertable', view);
+	    core.mSimple(view);
 	    Reflect.defineProperty(this, 'view', {
 	      value: view,
 	      enumerable: true,
@@ -216,10 +225,17 @@
 	    return InsertView;
 	  }
 
+	  static get version() {
+	    return version;
+	  }
+
 	}
 
-	_defineProperty(Insertable, "version", '0.1.0-alpha.0');
+	exports.InsertView = InsertView;
+	exports.default = Insertable;
+	exports.install = install;
+	exports.version = version;
 
-	return Insertable;
+	Object.defineProperty(exports, '__esModule', { value: true });
 
 })));

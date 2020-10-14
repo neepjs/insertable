@@ -1,10 +1,10 @@
 /*!
- * NeepInsertable v0.1.0-alpha.0
+ * NeepInsertable v0.1.0-alpha.2
  * (c) 2020 Fierflame
  * @license MIT
  */
 import * as _mp_rt1__neep_core__ from '@neep/core';
-import { Component, Context, Auxiliary, NeepElement } from '@neep/core';
+import { Component, Context, NeepElement } from '@neep/core';
 
 declare function install(Neep: typeof _mp_rt1__neep_core__): void;
 
@@ -24,7 +24,7 @@ declare class Insertable {
     get view(): Component<object, object>;
     static get install(): typeof install;
     static get View(): typeof InsertView;
-    static readonly version = "__VERSION__";
+    static get version(): string;
 }
 
 interface Props {
@@ -32,14 +32,11 @@ interface Props {
     insertable?: Insertable;
     [key: string]: any;
 }
-declare function InsertView(props: Props, { insertable: contextInsertable, childNodes }: Context, { createElement, Deliver }: Auxiliary): any[] | NeepElement | null;
+declare function InsertView(props: Props, { insertable: contextInsertable, childNodes }: Context): any[] | NeepElement | null;
 
 declare module '@neep/core' {
 	interface Context {
 		readonly insertable?: Insertable;
-	}
-	interface Delivered {
-		readonly __NeepInsertable__?: Insertable;
 	}
 }
 
@@ -52,4 +49,7 @@ declare global {
 	}
 }
 
+declare const version: string;
+
 export default Insertable;
+export { InsertView, install, version };

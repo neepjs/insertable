@@ -1,9 +1,11 @@
 /*!
- * NeepInsertable v0.1.0-alpha.0
+ * NeepInsertable v0.1.0-alpha.2
  * (c) 2020 Fierflame
  * @license MIT
  */
 'use strict';
+
+Object.defineProperty(exports, '__esModule', { value: true });
 
 var core = require('@neep/core');
 
@@ -22,9 +24,14 @@ function _defineProperty(obj, key, value) {
   return obj;
 }
 
+let InsertableDeliver;
+function initDelivers() {
+  InsertableDeliver = core.createDeliver();
+}
+
 function contextConstructor(context) {
   Reflect.defineProperty(context, 'insertable', {
-    value: context.delivered.__NeepInsertable__,
+    value: context.delivered(InsertableDeliver),
     enumerable: true,
     configurable: true
   });
@@ -37,9 +44,6 @@ function installContextConstructor() {
 function InsertView(props, {
   insertable: contextInsertable,
   childNodes
-}, {
-  createElement,
-  Deliver
 }) {
   const {
     name,
@@ -47,8 +51,8 @@ function InsertView(props, {
   } = props;
 
   if (!name && insertable instanceof Insertable) {
-    return createElement(Deliver, {
-      __NeepInsertable__: insertable
+    return core.createElement(InsertableDeliver, {
+      value: insertable
     }, ...childNodes);
   }
 
@@ -63,9 +67,9 @@ function InsertView(props, {
       return null;
     }
 
-    return createElement(Deliver, {
-      __NeepInsertable__: insertable
-    }, list.map(t => createElement(t.component, props, ...childNodes)));
+    return core.createElement(InsertableDeliver, {
+      value: insertable
+    }, list.map(t => core.createElement(t.component, props, ...childNodes)));
   }
 
   if (!(contextInsertable instanceof Insertable)) {
@@ -78,7 +82,7 @@ function InsertView(props, {
     return null;
   }
 
-  return list.map(t => createElement(t.component, props, ...childNodes));
+  return list.map(t => core.createElement(t.component, props, ...childNodes));
 }
 core.mSimple(InsertView);
 core.mName('InsertView', InsertView);
@@ -88,9 +92,15 @@ function installComponents() {
   core.register('insert-view', InsertView);
 }
 
+var moduleList = [installComponents, installContextConstructor, initDelivers];
+
 function install(Neep) {}
-installComponents();
-installContextConstructor();
+
+for (const f of moduleList) {
+  f();
+}
+
+const version = '0.1.0-alpha.2';
 
 class Insertable {
   constructor(parent) {
@@ -198,6 +208,7 @@ class Insertable {
     }, ...p);
 
     core.mName('Insertable', view);
+    core.mSimple(view);
     Reflect.defineProperty(this, 'view', {
       value: view,
       enumerable: true,
@@ -214,8 +225,13 @@ class Insertable {
     return InsertView;
   }
 
+  static get version() {
+    return version;
+  }
+
 }
 
-_defineProperty(Insertable, "version", '0.1.0-alpha.0');
-
-module.exports = Insertable;
+exports.InsertView = InsertView;
+exports.default = Insertable;
+exports.install = install;
+exports.version = version;
