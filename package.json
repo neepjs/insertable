@@ -28,12 +28,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/neepjs/insertable.git"
+    "url": "git+https://gitee.com/neepjs/insertable.git"
   },
   "bugs": {
-    "url": "https://github.com/neepjs/insertable/issues"
+    "url": "https://gitee.com/neepjs/insertable/issues"
   },
-  "homepage": "https://github.com/neepjs/insertable#readme",
+  "homepage": "https://gitee.com/neepjs/insertable#readme",
   "devDependencies": {
     "@babel/cli": "^7.11.6",
     "@babel/core": "^7.11.6",
