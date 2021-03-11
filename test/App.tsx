@@ -1,16 +1,13 @@
-import { create, mName, createElement } from '@neep/core';
+import Neep from '@neep/core';
 import Insertable from '@neep/insertable';
 // 1. 定义组件。
 // 可以从其他文件 import 进来
-const Com1 = create((props: any, {emit}) =>
+const Com1 = Neep.createComponent((props: any, {emit}) =>
 <div on-click={() => emit('click', '666')}>
 	{props.customAttribute}组件1
-</div>);
-const Com2 = create(() => <div>组件2</div>);
-const Com3 = create(() => <div>组件3</div>);
-mName('Com1', Com1);
-mName('Com2', Com2);
-mName('Com3', Com3);
+</div>, {name: 'Com1'});
+const Com2 = Neep.createComponent(() => <div>组件2</div>, {name: 'Com2'});
+const Com3 = Neep.createComponent(() => <div>组件3</div>, {name: 'Com3'});
 
 // 2. 创建 insertable 实例
 const insertable = new Insertable();
