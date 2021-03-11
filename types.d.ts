@@ -1,14 +1,25 @@
 /*!
- * NeepInsertable v0.1.0-alpha.2
- * (c) 2020 Fierflame
+ * NeepInsertable v0.1.0-alpha.3
+ * (c) 2020-2021 Fierflame
  * @license MIT
  */
-import * as _mp_rt1__neep_core__ from '@neep/core';
-import { Component, Context, NeepElement } from '@neep/core';
+import * as Neep from '@neep/core';
+import Neep$1 from '@neep/core';
 
-declare function install(Neep: typeof _mp_rt1__neep_core__): void;
+declare function install(Neep: typeof Neep): void;
 
-declare type InsertableComponent = string | Component<any, any>;
+declare let withInsertable: (() => Insertable | undefined);
+
+declare namespace InsertView {
+    interface Props {
+        name?: string;
+        insertable?: Insertable;
+        [key: string]: any;
+    }
+}
+declare let InsertView: Neep$1.ShellComponent<InsertView.Props, any>;
+
+declare type InsertableComponent = string | Neep$1.Component<any>;
 interface Info {
     component: InsertableComponent;
     order?: number;
@@ -21,35 +32,22 @@ declare class Insertable {
     remove(name: string): void;
     set(name: string, components: InsertableComponent | InsertableComponent[], info?: Omit<Info, 'component'> | number): void;
     get(name: string, parent?: boolean | number): Readonly<Info>[];
-    get view(): Component<object, object>;
+    get view(): Neep$1.ShellComponent<InsertView.Props, any>;
     static get install(): typeof install;
-    static get View(): typeof InsertView;
+    static get View(): Neep$1.ShellComponent<InsertView.Props, any>;
     static get version(): string;
-}
-
-interface Props {
-    name?: string;
-    insertable?: Insertable;
-    [key: string]: any;
-}
-declare function InsertView(props: Props, { insertable: contextInsertable, childNodes }: Context): any[] | NeepElement | null;
-
-declare module '@neep/core' {
-	interface Context {
-		readonly insertable?: Insertable;
-	}
-}
-
-declare global {
-	namespace JSX {
-		interface IntrinsicElements {
-			'InsertView': Props;
-			'insert-view': Props;
-		}
-	}
 }
 
 declare const version: string;
 
+declare global {
+    namespace JSX {
+        interface IntrinsicElements {
+            'InsertView': InsertView.Props;
+            'insert-view': InsertView.Props;
+        }
+    }
+}
+
 export default Insertable;
-export { InsertView, install, version };
+export { InsertView, InsertView as View, install, version, withInsertable };

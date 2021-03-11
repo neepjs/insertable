@@ -1,10 +1,8 @@
 /*!
- * NeepInsertable v0.1.0-alpha.2
- * (c) 2020 Fierflame
+ * NeepInsertable v0.1.0-alpha.3
+ * (c) 2020-2021 Fierflame
  * @license MIT
  */
-import { mSimple, mName } from '@neep/core';
-
 function _defineProperty(obj, key, value) {
   if (key in obj) {
     Object.defineProperty(obj, key, {
@@ -23,53 +21,65 @@ function _defineProperty(obj, key, value) {
 let encase;
 let register;
 let createElement;
-let createDeliver;
-let addContextConstructor;
+let createTemplateElement;
+let createDeliverComponent;
+let createShellComponent;
+let createWith;
+let withDelivered;
 function installNeep(Neep) {
   ({
     encase,
     register,
     createElement,
-    createDeliver,
-    addContextConstructor
+    createTemplateElement,
+    createDeliverComponent,
+    createShellComponent,
+    createWith,
+    withDelivered
   } = Neep);
 }
 
 let InsertableDeliver;
 function initDelivers() {
-  InsertableDeliver = createDeliver();
+  InsertableDeliver = createDeliverComponent();
 }
 
-function contextConstructor(context) {
-  Reflect.defineProperty(context, 'insertable', {
-    value: context.delivered(InsertableDeliver),
-    enumerable: true,
-    configurable: true
+let withInsertable;
+function initWith() {
+  withInsertable = createWith({
+    name: 'withInsertable',
+
+    create() {
+      return withDelivered(InsertableDeliver);
+    }
+
   });
 }
 
-function installContextConstructor() {
-  addContextConstructor(contextConstructor);
-}
-
-function InsertView(props, {
-  insertable: contextInsertable,
+function InsertViewFn(props, {
   childNodes
 }) {
   const {
-    name,
-    insertable
+    name
   } = props;
 
-  if (!name && insertable instanceof Insertable) {
-    return createElement(InsertableDeliver, {
-      value: insertable
-    }, ...childNodes);
+  if (typeof name !== 'string') {
+    const {
+      insertable
+    } = props;
+
+    if (insertable instanceof Insertable) {
+      return createElement(InsertableDeliver, {
+        value: insertable
+      }, ...childNodes());
+    }
+
+    return createTemplateElement(childNodes());
   }
 
-  if (!name) {
-    return childNodes;
-  }
+  const {
+    insertable
+  } = props;
 
   if (insertable instanceof Insertable) {
     const list = insertable.get(name);
@@ -80,11 +90,13 @@ function InsertView(props, {
 
     return createElement(InsertableDeliver, {
       value: insertable
-    }, list.map(t => createElement(t.component, props, ...childNodes)));
+    }, list.map(t => createElement(t.component, props, ...childNodes())));
   }
 
-  if (!(contextInsertable instanceof Insertable)) {
-    return childNodes;
+  const contextInsertable = withInsertable();
+
+  if (!contextInsertable) {
+    return createTemplateElement(childNodes);
   }
 
   const list = contextInsertable.get(name);
@@ -93,17 +105,21 @@ function InsertView(props, {
     return null;
   }
 
-  return list.map(t => createElement(t.component, props, ...childNodes));
+  return createTemplateElement(list.map(t => createElement(t.component, props, ...childNodes())));
 }
-mSimple(InsertView);
-mName('InsertView', InsertView);
+let InsertView;
+function initComponents() {
+  InsertView = createShellComponent(InsertViewFn, {
+    name: 'InsertView'
+  });
+}
 
 function installComponents() {
   register('InsertView', InsertView);
   register('insert-view', InsertView);
 }
 
-var moduleList = [installComponents, installContextConstructor, initDelivers];
+var moduleList = [initDelivers, initComponents, installComponents, initWith];
 
 function install(Neep) {
   installNeep(Neep);
@@ -113,7 +129,7 @@ function install(Neep) {
   }
 }
 
-const version = '0.1.0-alpha.2';
+const version = '0.1.0-alpha.3';
 
 class Insertable {
   constructor(parent) {
@@ -216,12 +232,11 @@ class Insertable {
   }
 
   get view() {
-    const view = (props, ...p) => InsertView({ ...props,
+    const view = createShellComponent((props, ...p) => InsertViewFn({ ...props,
       insertable: this
-    }, ...p);
-
-    mName('Insertable', view);
-    mSimple(view);
+    }, ...p), {
+      name: 'Insertable'
+    });
     Reflect.defineProperty(this, 'view', {
       value: view,
       enumerable: true,
@@ -245,4 +260,4 @@ class Insertable {
 }
 
 export default Insertable;
-export { InsertView, install, version };
+export { InsertView, InsertView as View, install, version, withInsertable };

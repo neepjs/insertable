@@ -1,241 +1,251 @@
 /*!
- * NeepInsertable v0.1.0-alpha.2
- * (c) 2020 Fierflame
+ * NeepInsertable v0.1.0-alpha.3
+ * (c) 2020-2021 Fierflame
  * @license MIT
  */
 (function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('@neep/core')) :
-	typeof define === 'function' && define.amd ? define(['exports', '@neep/core'], factory) :
-	(global = global || self, factory(global.NeepInsertable = {}, global.Neep));
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('@neep/core')) :
+  typeof define === 'function' && define.amd ? define(['exports', '@neep/core'], factory) :
+  (global = global || self, factory(global.NeepInsertable = {}, global.Neep));
 }(this, (function (exports, core) { 'use strict';
 
-	function _defineProperty(obj, key, value) {
-	  if (key in obj) {
-	    Object.defineProperty(obj, key, {
-	      value: value,
-	      enumerable: true,
-	      configurable: true,
-	      writable: true
-	    });
-	  } else {
-	    obj[key] = value;
-	  }
+  function _defineProperty(obj, key, value) {
+    if (key in obj) {
+      Object.defineProperty(obj, key, {
+        value: value,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    } else {
+      obj[key] = value;
+    }
 
-	  return obj;
-	}
+    return obj;
+  }
 
-	let InsertableDeliver;
-	function initDelivers() {
-	  InsertableDeliver = core.createDeliver();
-	}
+  let InsertableDeliver;
+  function initDelivers() {
+    InsertableDeliver = core.createDeliverComponent();
+  }
 
-	function contextConstructor(context) {
-	  Reflect.defineProperty(context, 'insertable', {
-	    value: context.delivered(InsertableDeliver),
-	    enumerable: true,
-	    configurable: true
-	  });
-	}
+  function initWith() {
+    exports.withInsertable = core.createWith({
+      name: 'withInsertable',
 
-	function installContextConstructor() {
-	  core.addContextConstructor(contextConstructor);
-	}
+      create() {
+        return core.withDelivered(InsertableDeliver);
+      }
 
-	function InsertView(props, {
-	  insertable: contextInsertable,
-	  childNodes
-	}) {
-	  const {
-	    name,
-	    insertable
-	  } = props;
+    });
+  }
 
-	  if (!name && insertable instanceof Insertable) {
-	    return core.createElement(InsertableDeliver, {
-	      value: insertable
-	    }, ...childNodes);
-	  }
+  function InsertViewFn(props, {
+    childNodes
+  }) {
+    const {
+      name
+    } = props;
 
-	  if (!name) {
-	    return childNodes;
-	  }
+    if (typeof name !== 'string') {
+      const {
+        insertable
+      } = props;
 
-	  if (insertable instanceof Insertable) {
-	    const list = insertable.get(name);
+      if (insertable instanceof Insertable) {
+        return core.createElement(InsertableDeliver, {
+          value: insertable
+        }, ...childNodes());
+      }
 
-	    if (!list) {
-	      return null;
-	    }
+      return core.createTemplateElement(childNodes());
+    }
 
-	    return core.createElement(InsertableDeliver, {
-	      value: insertable
-	    }, list.map(t => core.createElement(t.component, props, ...childNodes)));
-	  }
+    const {
+      insertable
+    } = props;
 
-	  if (!(contextInsertable instanceof Insertable)) {
-	    return childNodes;
-	  }
+    if (insertable instanceof Insertable) {
+      const list = insertable.get(name);
 
-	  const list = contextInsertable.get(name);
+      if (!list) {
+        return null;
+      }
 
-	  if (!list) {
-	    return null;
-	  }
+      return core.createElement(InsertableDeliver, {
+        value: insertable
+      }, list.map(t => core.createElement(t.component, props, ...childNodes())));
+    }
 
-	  return list.map(t => core.createElement(t.component, props, ...childNodes));
-	}
-	core.mSimple(InsertView);
-	core.mName('InsertView', InsertView);
+    const contextInsertable = exports.withInsertable();
 
-	function installComponents() {
-	  core.register('InsertView', InsertView);
-	  core.register('insert-view', InsertView);
-	}
+    if (!contextInsertable) {
+      return core.createTemplateElement(childNodes);
+    }
 
-	var moduleList = [installComponents, installContextConstructor, initDelivers];
+    const list = contextInsertable.get(name);
 
-	function install(Neep) {}
+    if (!list) {
+      return null;
+    }
 
-	for (const f of moduleList) {
-	  f();
-	}
+    return core.createTemplateElement(list.map(t => core.createElement(t.component, props, ...childNodes())));
+  }
 
-	const version = '0.1.0-alpha.2';
+  function initComponents() {
+    exports.View = core.createShellComponent(InsertViewFn, {
+      name: 'InsertView'
+    });
+  }
 
-	class Insertable {
-	  constructor(parent) {
-	    _defineProperty(this, "parent", void 0);
+  function installComponents() {
+    core.register('InsertView', exports.View);
+    core.register('insert-view', exports.View);
+  }
 
-	    _defineProperty(this, "_groups", core.encase(Object.create(null)));
+  var moduleList = [initDelivers, initComponents, installComponents, initWith];
 
-	    if (parent instanceof Insertable) {
-	      this.parent = parent;
-	    }
-	  }
+  function install(Neep) {}
 
-	  add(name, components, info = {}) {
-	    if (typeof info === 'number') {
-	      info = {
-	        order: info
-	      };
-	    }
+  for (const f of moduleList) {
+    f();
+  }
 
-	    const groups = this._groups;
+  const version = '0.1.0-alpha.3';
 
-	    if (!Array.isArray(components)) {
-	      components = [components];
-	    }
+  class Insertable {
+    constructor(parent) {
+      _defineProperty(this, "parent", void 0);
 
-	    const list = groups[name] ? [...groups[name]] : [];
-	    list.push(...components.map(component => Object.freeze({ ...info,
-	      component
-	    })));
-	    list.sort(({
-	      order: a
-	    }, {
-	      order: b
-	    }) => (a || 0) - (b || 0));
-	    groups[name] = list;
-	  }
+      _defineProperty(this, "_groups", core.encase(Object.create(null)));
 
-	  remove(name, component) {
-	    const groups = this._groups;
-	    const oldList = groups[name];
+      if (parent instanceof Insertable) {
+        this.parent = parent;
+      }
+    }
 
-	    if (!oldList) {
-	      return;
-	    }
+    add(name, components, info = {}) {
+      if (typeof info === 'number') {
+        info = {
+          order: info
+        };
+      }
 
-	    if (!component) {
-	      groups[name] = [];
-	      return;
-	    }
+      const groups = this._groups;
 
-	    const k = oldList.findIndex(t => t.component === component);
+      if (!Array.isArray(components)) {
+        components = [components];
+      }
 
-	    if (k < 0) {
-	      return;
-	    }
+      const list = groups[name] ? [...groups[name]] : [];
+      list.push(...components.map(component => Object.freeze({ ...info,
+        component
+      })));
+      list.sort(({
+        order: a
+      }, {
+        order: b
+      }) => (a || 0) - (b || 0));
+      groups[name] = list;
+    }
 
-	    const list = [...oldList.slice(0, k), ...oldList.slice(k + 1)];
-	    groups[name] = list;
-	  }
+    remove(name, component) {
+      const groups = this._groups;
+      const oldList = groups[name];
 
-	  set(name, components, info = {}) {
-	    if (typeof info === 'number') {
-	      info = {
-	        order: info
-	      };
-	    }
+      if (!oldList) {
+        return;
+      }
 
-	    const groups = this._groups;
+      if (!component) {
+        groups[name] = [];
+        return;
+      }
 
-	    if (!Array.isArray(components)) {
-	      components = [components];
-	    }
+      const k = oldList.findIndex(t => t.component === component);
 
-	    const list = components.map(component => Object.freeze({ ...info,
-	      component
-	    }));
-	    groups[name] = list;
-	  }
+      if (k < 0) {
+        return;
+      }
 
-	  get(name, parent) {
-	    const groups = this._groups;
-	    const list = groups[name] || [];
+      const list = [...oldList.slice(0, k), ...oldList.slice(k + 1)];
+      groups[name] = list;
+    }
 
-	    if (!parent || !this.parent) {
-	      return [...list];
-	    }
+    set(name, components, info = {}) {
+      if (typeof info === 'number') {
+        info = {
+          order: info
+        };
+      }
 
-	    const parentList = this.parent.get(name, typeof parent === 'number' ? parent - 1 : -1);
-	    const allList = [...parentList, ...list];
+      const groups = this._groups;
 
-	    if (list.length && parentList.length) {
-	      allList.sort(({
-	        order: a
-	      }, {
-	        order: b
-	      }) => (a || 0) - (b || 0));
-	    }
+      if (!Array.isArray(components)) {
+        components = [components];
+      }
 
-	    return allList;
-	  }
+      const list = components.map(component => Object.freeze({ ...info,
+        component
+      }));
+      groups[name] = list;
+    }
 
-	  get view() {
-	    const view = (props, ...p) => InsertView({ ...props,
-	      insertable: this
-	    }, ...p);
+    get(name, parent) {
+      const groups = this._groups;
+      const list = groups[name] || [];
 
-	    core.mName('Insertable', view);
-	    core.mSimple(view);
-	    Reflect.defineProperty(this, 'view', {
-	      value: view,
-	      enumerable: true,
-	      configurable: true
-	    });
-	    return view;
-	  }
+      if (!parent || !this.parent) {
+        return [...list];
+      }
 
-	  static get install() {
-	    return install;
-	  }
+      const parentList = this.parent.get(name, typeof parent === 'number' ? parent - 1 : -1);
+      const allList = [...parentList, ...list];
 
-	  static get View() {
-	    return InsertView;
-	  }
+      if (list.length && parentList.length) {
+        allList.sort(({
+          order: a
+        }, {
+          order: b
+        }) => (a || 0) - (b || 0));
+      }
 
-	  static get version() {
-	    return version;
-	  }
+      return allList;
+    }
 
-	}
+    get view() {
+      const view = core.createShellComponent((props, ...p) => InsertViewFn({ ...props,
+        insertable: this
+      }, ...p), {
+        name: 'Insertable'
+      });
+      Reflect.defineProperty(this, 'view', {
+        value: view,
+        enumerable: true,
+        configurable: true
+      });
+      return view;
+    }
 
-	exports.InsertView = InsertView;
-	exports.default = Insertable;
-	exports.install = install;
-	exports.version = version;
+    static get install() {
+      return install;
+    }
 
-	Object.defineProperty(exports, '__esModule', { value: true });
+    static get View() {
+      return exports.View;
+    }
+
+    static get version() {
+      return version;
+    }
+
+  }
+
+  exports.InsertView = exports.View;
+  exports.default = Insertable;
+  exports.install = install;
+  exports.version = version;
+
+  Object.defineProperty(exports, '__esModule', { value: true });
 
 })));

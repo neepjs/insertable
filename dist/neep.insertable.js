@@ -1,6 +1,6 @@
 /*!
- * NeepInsertable v0.1.0-alpha.2
- * (c) 2020 Fierflame
+ * NeepInsertable v0.1.0-alpha.3
+ * (c) 2020-2021 Fierflame
  * @license MIT
  */
 'use strict';
@@ -26,39 +26,44 @@ function _defineProperty(obj, key, value) {
 
 let InsertableDeliver;
 function initDelivers() {
-  InsertableDeliver = core.createDeliver();
+  InsertableDeliver = core.createDeliverComponent();
 }
 
-function contextConstructor(context) {
-  Reflect.defineProperty(context, 'insertable', {
-    value: context.delivered(InsertableDeliver),
-    enumerable: true,
-    configurable: true
+function initWith() {
+  exports.withInsertable = core.createWith({
+    name: 'withInsertable',
+
+    create() {
+      return core.withDelivered(InsertableDeliver);
+    }
+
   });
 }
 
-function installContextConstructor() {
-  core.addContextConstructor(contextConstructor);
-}
-
-function InsertView(props, {
-  insertable: contextInsertable,
+function InsertViewFn(props, {
   childNodes
 }) {
   const {
-    name,
-    insertable
+    name
   } = props;
 
-  if (!name && insertable instanceof Insertable) {
-    return core.createElement(InsertableDeliver, {
-      value: insertable
-    }, ...childNodes);
+  if (typeof name !== 'string') {
+    const {
+      insertable
+    } = props;
+
+    if (insertable instanceof Insertable) {
+      return core.createElement(InsertableDeliver, {
+        value: insertable
+      }, ...childNodes());
+    }
+
+    return core.createTemplateElement(childNodes());
   }
 
-  if (!name) {
-    return childNodes;
-  }
+  const {
+    insertable
+  } = props;
 
   if (insertable instanceof Insertable) {
     const list = insertable.get(name);
@@ -69,11 +74,13 @@ function InsertView(props, {
 
     return core.createElement(InsertableDeliver, {
       value: insertable
-    }, list.map(t => core.createElement(t.component, props, ...childNodes)));
+    }, list.map(t => core.createElement(t.component, props, ...childNodes())));
   }
 
-  if (!(contextInsertable instanceof Insertable)) {
-    return childNodes;
+  const contextInsertable = exports.withInsertable();
+
+  if (!contextInsertable) {
+    return core.createTemplateElement(childNodes);
   }
 
   const list = contextInsertable.get(name);
@@ -82,17 +89,21 @@ function InsertView(props, {
     return null;
   }
 
-  return list.map(t => core.createElement(t.component, props, ...childNodes));
+  return core.createTemplateElement(list.map(t => core.createElement(t.component, props, ...childNodes())));
 }
-core.mSimple(InsertView);
-core.mName('InsertView', InsertView);
+
+function initComponents() {
+  exports.View = core.createShellComponent(InsertViewFn, {
+    name: 'InsertView'
+  });
+}
 
 function installComponents() {
-  core.register('InsertView', InsertView);
-  core.register('insert-view', InsertView);
+  core.register('InsertView', exports.View);
+  core.register('insert-view', exports.View);
 }
 
-var moduleList = [installComponents, installContextConstructor, initDelivers];
+var moduleList = [initDelivers, initComponents, installComponents, initWith];
 
 function install(Neep) {}
 
@@ -100,7 +111,7 @@ for (const f of moduleList) {
   f();
 }
 
-const version = '0.1.0-alpha.2';
+const version = '0.1.0-alpha.3';
 
 class Insertable {
   constructor(parent) {
@@ -203,12 +214,11 @@ class Insertable {
   }
 
   get view() {
-    const view = (props, ...p) => InsertView({ ...props,
+    const view = core.createShellComponent((props, ...p) => InsertViewFn({ ...props,
       insertable: this
-    }, ...p);
-
-    core.mName('Insertable', view);
-    core.mSimple(view);
+    }, ...p), {
+      name: 'Insertable'
+    });
     Reflect.defineProperty(this, 'view', {
       value: view,
       enumerable: true,
@@ -222,7 +232,7 @@ class Insertable {
   }
 
   static get View() {
-    return InsertView;
+    return exports.View;
   }
 
   static get version() {
@@ -231,7 +241,7 @@ class Insertable {
 
 }
 
-exports.InsertView = InsertView;
+exports.InsertView = exports.View;
 exports.default = Insertable;
 exports.install = install;
 exports.version = version;
