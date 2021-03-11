@@ -1,9 +1,9 @@
-import { Deliver } from '@neep/core';
-import { createDeliver } from './neep';
+import Neep from '@neep/core';
+import { createDeliverComponent } from './neep';
 import Insertable from '../Insertable';
 
-export let InsertableDeliver: Deliver<Insertable | undefined>;
+export let InsertableDeliver: Neep.DeliverComponent<Insertable | undefined>;
 
 export default function initDelivers() {
-	InsertableDeliver = createDeliver<Insertable>();
+	InsertableDeliver = createDeliverComponent<Insertable>();
 }

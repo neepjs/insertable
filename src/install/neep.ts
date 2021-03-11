@@ -2,8 +2,11 @@ export {
 	encase,
 	register,
 	createElement,
-	createDeliver,
-	addContextConstructor,
+	createTemplateElement,
+	createDeliverComponent,
+	createShellComponent,
+	createWith,
+	withDelivered,
 } from '@neep/core';
 export default function installNeep(Neep: typeof import ('@neep/core')) {
 }

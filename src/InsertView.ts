@@ -1,38 +1,55 @@
 import Insertable from './Insertable';
-import { mSimple, mName, Context } from '@neep/core';
-import { createElement } from './install/neep';
+import Neep from '@neep/core';
+import {
+	createElement,
+	createTemplateElement,
+	createShellComponent,
+} from './install/neep';
 import { InsertableDeliver } from './install/initDelivers';
+import { withInsertable } from './install';
 
-export interface Props {
-	name?: string;
-	insertable?: Insertable;
-	[key: string]: any;
-}
-export default function InsertView(
-	props: Props,
-	{ insertable: contextInsertable, childNodes }: Context,
-) {
-	const { name, insertable } = props;
-	if (!name && insertable instanceof Insertable) {
-		return createElement(InsertableDeliver, {
-			value: insertable,
-		}, ...childNodes);
+export function InsertViewFn(
+	props: InsertView.Props,
+	{ childNodes }: Neep.ShellContext<any>
+): Neep.Node {
+	const { name } = props;
+	if (typeof name !== 'string') {
+		const { insertable } = props;
+		if (insertable instanceof Insertable) {
+			return createElement(InsertableDeliver, {
+				value: insertable,
+			}, ...childNodes());
+		}
+		return createTemplateElement(childNodes());
 	}
-	if (!name) { return childNodes; }
+	const { insertable } = props;
 	if (insertable instanceof Insertable) {
 		const list = insertable.get(name);
 		if (!list) { return null; }
 		return createElement(InsertableDeliver, {
 			value: insertable,
-		}, list.map(t => createElement(t.component, props, ...childNodes)));
+		}, list.map(t => createElement(t.component, props, ...childNodes())));
 	}
-	if (!(contextInsertable instanceof Insertable)) {
-		return childNodes;
+	const contextInsertable = withInsertable();
+	if (!contextInsertable) {
+		return createTemplateElement(childNodes);
 	}
 	const list = contextInsertable.get(name);
 	if (!list) { return null; }
-	return list.map(t => createElement(t.component, props, ...childNodes));
+	return createTemplateElement(list.map(t => createElement(t.component, props, ...childNodes())));
 }
+declare namespace InsertView {
+	export interface Props {
+		name?: string;
+		insertable?: Insertable;
+		[key: string]: any;
+	}
 
-mSimple(InsertView);
-mName('InsertView', InsertView);
+}
+let InsertView: Neep.ShellComponent<InsertView.Props, any>;
+export function initComponents() {
+	InsertView = createShellComponent<any, any>(InsertViewFn, { name: 'InsertView'});
+}
+export {
+	InsertView as default,
+};

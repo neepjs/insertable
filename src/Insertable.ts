@@ -1,10 +1,10 @@
-import { Component, mName, mSimple } from '@neep/core';
+import Neep from '@neep/core';
 import install from './install';
-import { encase } from './install/neep';
-import InsertView from './InsertView';
+import { encase, createShellComponent } from './install/neep';
+import InsertView, { InsertViewFn } from './InsertView';
 import { version } from './constants';
 
-export type InsertableComponent = string | Component<any, any>;
+export type InsertableComponent = string | Neep.Component<any>;
 export interface Info {
 	component: InsertableComponent;
 	order?: number;
@@ -81,13 +81,10 @@ class Insertable {
 		return allList;
 	}
 	get view() {
-		const view: Component = (props: {
-			name?: string;
-			[key: string]: any;
-		}, ...p) =>
-		InsertView({...props, insertable: this}, ...p);
-		mName('Insertable', view);
-		mSimple(view);
+		const view = createShellComponent<InsertView.Props, any>(
+			(props, ...p) => InsertViewFn({...props, insertable: this}, ...p),
+			{name: 'Insertable'},
+		);
 		Reflect.defineProperty(this, 'view', {
 			value: view,
 			enumerable: true,

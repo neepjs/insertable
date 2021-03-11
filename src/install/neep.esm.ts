@@ -1,16 +1,21 @@
 export let encase: typeof import ('@neep/core').encase;
 export let register: typeof import ('@neep/core').register;
-export let Error: typeof import ('@neep/core').Error;
 export let createElement: typeof import ('@neep/core').createElement;
-export let createDeliver: typeof import ('@neep/core').createDeliver;
+export let createTemplateElement: typeof import ('@neep/core').createTemplateElement;
+export let createDeliverComponent: typeof import ('@neep/core').createDeliverComponent;
+export let createShellComponent: typeof import ('@neep/core').createShellComponent;
+export let createWith: typeof import ('@neep/core').createWith;
+export let withDelivered: typeof import ('@neep/core').withDelivered;
 
-export let addContextConstructor: typeof import ('@neep/core').addContextConstructor;
 export default function installNeep(Neep: typeof import ('@neep/core')) {
 	({
 		encase,
 		register,
 		createElement,
-		createDeliver,
-		addContextConstructor,
+		createTemplateElement,
+		createDeliverComponent,
+		createShellComponent,
+		createWith,
+		withDelivered,
 	} = Neep);
 }

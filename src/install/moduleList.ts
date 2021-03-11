@@ -1,9 +1,11 @@
-import installContextConstructor from './installContextConstructor';
+import initWith from './initWith';
 import installComponents from './installComponents';
 import initDelivers from './initDelivers';
+import { initComponents } from '../InsertView';
 
 export default [
-	installComponents,
-	installContextConstructor,
 	initDelivers,
+	initComponents,
+	installComponents,
+	initWith,
 ];
